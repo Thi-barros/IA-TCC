@@ -1,0 +1,24 @@
+# Dependências de PRODUÇÃO — o mínimo para servir a API de inferência.
+#
+# Cobrem api/ e os módulos de src/ia_alface/ efetivamente usados em tempo de
+# execução: classes, config, inferencia e explicabilidade.
+#
+# Para treinar, avaliar ou exportar o modelo, instale também:
+#     pip install -r desenvolvimento/requirements-dev.txt
+
+# Modelo e inferência
+ultralytics>=8.4.95
+torch>=2.13.0
+numpy>=2.0
+pillow>=11.0
+
+# Mapa de calor Grad-CAM (rota /analyze?heatmap=true)
+matplotlib>=3.9
+
+# Execução do modelo exportado em ONNX (IA_ALFACE_MODELO=*.onnx)
+onnxruntime>=1.20
+
+# Serviço HTTP
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9

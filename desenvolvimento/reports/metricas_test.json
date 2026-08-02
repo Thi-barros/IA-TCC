@@ -1,0 +1,50 @@
+{
+  "n_imagens": 324,
+  "acuracia_global": 0.9506,
+  "f1_macro": 0.9415,
+  "por_classe": {
+    "bacteriano": {
+      "exibicao": "Bacteriano (Xanthomonas campestris)",
+      "precisao": 0.9364,
+      "recall": 0.9717,
+      "f1_score": 0.9537,
+      "suporte": 106,
+      "confianca_media_acertos": 0.9834,
+      "fracao_acertos_acima_limiar": 0.9806
+    },
+    "fungico": {
+      "exibicao": "Fúngico (Bremia lactucae)",
+      "precisao": 0.9429,
+      "recall": 0.8462,
+      "f1_score": 0.8919,
+      "suporte": 78,
+      "confianca_media_acertos": 0.9561,
+      "fracao_acertos_acima_limiar": 0.8939
+    },
+    "saudavel": {
+      "exibicao": "Saudável",
+      "precisao": 0.9653,
+      "recall": 0.9929,
+      "f1_score": 0.9789,
+      "suporte": 140,
+      "confianca_media_acertos": 0.9884,
+      "fracao_acertos_acima_limiar": 0.9712
+    }
+  },
+  "latencia_ms": {
+    "mediana": 61.81,
+    "media": 75.76,
+    "p95": 160.5,
+    "minimo": 38.05,
+    "maximo": 714.46
+  },
+  "limiar_ct": 0.85,
+  "metas": {
+    "acuracia": 0.9,
+    "recall_saudavel": 0.9,
+    "latencia_ms": 100.0
+  },
+  "split_avaliado": "test",
+  "pesos": "modelos\\yolo11n_cls_alface.pt",
+  "dispositivo": "cpu"
+}

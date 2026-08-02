@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teste da IA — Detecção de Doenças em Alface</title>
+<style>
+  :root {
+    --fundo: #f6f7f4;
+    --cartao: #ffffff;
+    --borda: #dfe3da;
+    --texto: #1e241c;
+    --suave: #6b7566;
+    --verde: #2f7d32;
+    --ambar: #b8860b;
+    --vinho: #b3261e;
+    --azul: #1a5fb4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fundo: #141713;
+      --cartao: #1e221c;
+      --borda: #333a30;
+      --texto: #e8ece6;
+      --suave: #9aa595;
+      --verde: #6abf6e;
+      --ambar: #e0b64c;
+      --vinho: #f07167;
+      --azul: #7aa2f7;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px;
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--fundo); color: var(--texto);
+  }
+  .envelope { max-width: 900px; margin: 0 auto; }
+  header { margin-bottom: 24px; }
+  h1 { font-size: 1.5rem; margin: 0 0 6px; }
+  .legenda { color: var(--suave); font-size: .92rem; margin: 0; }
+
+  .estado {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 14px; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--borda); background: var(--cartao); font-size: .84rem;
+  }
+  .ponto { width: 9px; height: 9px; border-radius: 50%; background: var(--suave); }
+  .ponto.ok { background: var(--verde); }
+  .ponto.ruim { background: var(--vinho); }
+
+  .zona {
+    margin: 20px 0; padding: 40px 20px; text-align: center;
+    border: 2px dashed var(--borda); border-radius: 14px;
+    background: var(--cartao); cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .zona:hover, .zona.sobre { border-color: var(--verde); background: color-mix(in srgb, var(--verde) 6%, var(--cartao)); }
+  .zona strong { display: block; font-size: 1.05rem; margin-bottom: 4px; }
+  .zona span { color: var(--suave); font-size: .88rem; }
+
+  .opcoes { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; font-size: .9rem; }
+  .opcoes label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+  button {
+    font: inherit; font-size: .9rem; padding: 8px 16px; cursor: pointer;
+    border: 1px solid var(--borda); border-radius: 8px;
+    background: var(--cartao); color: var(--texto);
+  }
+  button:hover { border-color: var(--suave); }
+
+  .cartao {
+    margin-top: 18px; padding: 18px; border: 1px solid var(--borda);
+    border-radius: 14px; background: var(--cartao);
+  }
+  .cabeca { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+  .miniatura {
+    width: 132px; height: 132px; object-fit: cover; border-radius: 10px;
+    border: 1px solid var(--borda); flex-shrink: 0; background: var(--fundo);
+  }
+  .resumo { flex: 1; min-width: 230px; }
+  .arquivo { font-size: .82rem; color: var(--suave); word-break: break-all; margin-bottom: 8px; }
+  .cracha {
+    display: inline-block; padding: 4px 11px; border-radius: 7px;
+    font-weight: 600; font-size: .95rem; color: #fff; margin-bottom: 10px;
+  }
+  .cracha.saudavel   { background: var(--verde); }
+  .cracha.bacteriano { background: var(--ambar); }
+  .cracha.fungico    { background: var(--vinho); }
+
+  .barras { margin: 12px 0 0; }
+  .linha { display: grid; grid-template-columns: 92px 1fr 62px; gap: 9px; align-items: center; margin-bottom: 5px; font-size: .84rem; }
+  .trilha { height: 9px; background: var(--fundo); border: 1px solid var(--borda); border-radius: 999px; overflow: hidden; }
+  .preenche { height: 100%; border-radius: 999px; }
+  .preenche.saudavel { background: var(--verde); }
+  .preenche.bacteriano { background: var(--ambar); }
+  .preenche.fungico { background: var(--vinho); }
+  .valor { text-align: right; font-variant-numeric: tabular-nums; color: var(--suave); }
+
+  .meta { margin-top: 12px; font-size: .84rem; color: var(--suave); display: flex; flex-wrap: wrap; gap: 14px; }
+  .alerta {
+    margin-top: 12px; padding: 9px 13px; border-radius: 8px; font-size: .88rem;
+    border: 1px solid var(--vinho); color: var(--vinho);
+    background: color-mix(in srgb, var(--vinho) 8%, transparent);
+  }
+  .calmo { border-color: var(--verde); color: var(--verde); background: color-mix(in srgb, var(--verde) 8%, transparent); }
+
+  .mapa { margin-top: 16px; }
+  .mapa img { max-width: 100%; border-radius: 10px; border: 1px solid var(--borda); }
+  .mapa p { font-size: .8rem; color: var(--suave); margin: 6px 0 0; }
+
+  details { margin-top: 14px; font-size: .82rem; }
+  summary { cursor: pointer; color: var(--azul); }
+  pre {
+    margin: 10px 0 0; padding: 12px; overflow-x: auto;
+    background: var(--fundo); border: 1px solid var(--borda);
+    border-radius: 8px; font-size: .78rem; line-height: 1.45;
+  }
+  .falha { border-color: var(--vinho); }
+  .falha .arquivo { color: var(--vinho); }
+  .aguardando { color: var(--suave); font-size: .88rem; }
+</style>
+</head>
+<body>
+<div class="envelope">
+
+  <header>
+    <h1>Detecção de doenças foliares em alface</h1>
+    <p class="legenda">
+      Envie fotos de folhas de alface para classificação em <em>saudável</em>,
+      <em>bacteriana</em> (<i>Xanthomonas campestris</i>) ou <em>fúngica</em>
+      (<i>Bremia lactucae</i>).
+    </p>
+    <div class="estado" id="estado">
+      <span class="ponto" id="ponto"></span>
+      <span id="estadoTexto">verificando o serviço…</span>
+    </div>
+  </header>
+
+  <div class="zona" id="zona">
+    <strong>Clique aqui ou arraste imagens</strong>
+    <span>JPEG ou PNG · várias de uma vez</span>
+    <input type="file" id="entrada" accept="image/*" multiple hidden>
+  </div>
+
+  <div class="opcoes">
+    <label><input type="checkbox" id="comMapa"> Gerar mapa de calor (Grad-CAM)</label>
+    <button id="limpar">Limpar resultados</button>
+  </div>
+
+  <div id="resultados"></div>
+
+</div>
+
+<script>
+// A página é servida pela própria API, então basta usar caminho relativo:
+// não há CORS envolvido e não é preciso configurar endereço nenhum.
+const API = "";
+const CLASSES = ["bacteriano", "fungico", "saudavel"];
+
+const zona = document.getElementById("zona");
+const entrada = document.getElementById("entrada");
+const resultados = document.getElementById("resultados");
+const comMapa = document.getElementById("comMapa");
+
+function porcento(x) { return (x * 100).toFixed(1) + "%"; }
+
+async function verificarSaude() {
+  const ponto = document.getElementById("ponto");
+  const texto = document.getElementById("estadoTexto");
+  try {
+    const r = await fetch(API + "/health");
+    const d = await r.json();
+    if (d.modelo_carregado) {
+      ponto.className = "ponto ok";
+      texto.textContent = `modelo ${d.modelo_versao} · ${d.dispositivo}`;
+    } else {
+      ponto.className = "ponto ruim";
+      texto.textContent = "modelo não carregado — " + (d.detalhe || "");
+    }
+  } catch {
+    ponto.className = "ponto ruim";
+    texto.textContent = "serviço fora do ar (rode: uvicorn api.main:app)";
+  }
+}
+
+function criarCartao(arquivo) {
+  const cartao = document.createElement("div");
+  cartao.className = "cartao";
+  cartao.innerHTML = `
+    <div class="cabeca">
+      <img class="miniatura" alt="Pré-visualização de ${arquivo.name}">
+      <div class="resumo">
+        <div class="arquivo">${arquivo.name}</div>
+        <div class="corpo aguardando">analisando…</div>
+      </div>
+    </div>`;
+  cartao.querySelector(".miniatura").src = URL.createObjectURL(arquivo);
+  resultados.prepend(cartao);
+  return cartao;
+}
+
+function preencher(cartao, dados) {
+  const barras = CLASSES.map(c => {
+    const p = dados.probabilidades[c] ?? 0;
+    return `<div class="linha">
+              <span>${c}</span>
+              <div class="trilha"><div class="preenche ${c}" style="width:${p * 100}%"></div></div>
+              <span class="valor">${porcento(p)}</span>
+            </div>`;
+  }).join("");
+
+  const aviso = dados.alerta
+    ? `<div class="alerta"><strong>Alerta fitossanitário.</strong> Confiança
+       acima do limiar — o sistema dispararia a notificação push (RF07).</div>`
+    : dados.patogeno_detectado
+      ? `<div class="alerta">Patógeno detectado, mas a confiança de
+         ${porcento(dados.confianca)} está abaixo do limiar. Nenhum alerta seria
+         disparado.</div>`
+      : `<div class="alerta calmo">Folha saudável. Nenhum alerta.</div>`;
+
+  const mapa = dados.heatmap_base64
+    ? `<div class="mapa">
+         <img src="data:image/png;base64,${dados.heatmap_base64}" alt="Mapa de calor Grad-CAM">
+         <p>Regiões em vermelho são as que mais pesaram na decisão do modelo.
+            Se o destaque estiver fora da folha, o modelo pode estar usando
+            pistas espúrias.</p>
+       </div>`
+    : "";
+
+  cartao.querySelector(".corpo").outerHTML = `
+    <div class="corpo">
+      <span class="cracha ${dados.classe}">${dados.classe_exibicao}</span>
+      <div>Confiança: <strong>${porcento(dados.confianca)}</strong></div>
+      <div class="barras">${barras}</div>
+      <div class="meta">
+        <span>inferência: ${dados.tempo_inferencia_ms.toFixed(1)} ms</span>
+        <span>modelo: ${dados.modelo_versao}</span>
+      </div>
+      ${aviso}
+      ${mapa}
+      <details>
+        <summary>Ver JSON devolvido pela API</summary>
+        <pre>${JSON.stringify(dados, null, 2)}</pre>
+      </details>
+    </div>`;
+}
+
+function preencherFalha(cartao, mensagem, codigo) {
+  cartao.classList.add("falha");
+  cartao.querySelector(".corpo").outerHTML = `
+    <div class="corpo">
+      <div class="alerta"><strong>Falha${codigo ? " (HTTP " + codigo + ")" : ""}.</strong>
+      ${mensagem}</div>
+    </div>`;
+}
+
+async function enviar(arquivo) {
+  const cartao = criarCartao(arquivo);
+  const dados = new FormData();
+  dados.append("imagem", arquivo);
+  const rota = "/analyze" + (comMapa.checked ? "?heatmap=true" : "");
+
+  try {
+    const resposta = await fetch(API + rota, { method: "POST", body: dados });
+    const corpo = await resposta.json();
+    if (!resposta.ok) {
+      preencherFalha(cartao, corpo.detail || "erro desconhecido", resposta.status);
+      return;
+    }
+    preencher(cartao, corpo);
+  } catch (erro) {
+    preencherFalha(cartao, "Não foi possível contatar a API. " + erro.message);
+  }
+}
+
+function processar(arquivos) {
+  [...arquivos].filter(a => a.type.startsWith("image/")).forEach(enviar);
+}
+
+zona.addEventListener("click", () => entrada.click());
+entrada.addEventListener("change", e => { processar(e.target.files); e.target.value = ""; });
+
+["dragenter", "dragover"].forEach(evento =>
+  zona.addEventListener(evento, e => { e.preventDefault(); zona.classList.add("sobre"); }));
+["dragleave", "drop"].forEach(evento =>
+  zona.addEventListener(evento, e => { e.preventDefault(); zona.classList.remove("sobre"); }));
+zona.addEventListener("drop", e => processar(e.dataTransfer.files));
+
+document.getElementById("limpar").addEventListener("click", () => resultados.innerHTML = "");
+
+verificarSaude();
+</script>
+</body>
+</html>

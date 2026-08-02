@@ -1,0 +1,11 @@
+# Matriz de confusão — valores absolutos
+verdadeiro,bacteriano,fungico,saudavel
+bacteriano,103,3,0
+fungico,7,66,5
+saudavel,0,1,139
+
+# Matriz de confusão — normalizada por linha
+verdadeiro,bacteriano,fungico,saudavel
+bacteriano,0.9717,0.0283,0.0
+fungico,0.0897,0.8462,0.0641
+saudavel,0.0,0.0071,0.9929

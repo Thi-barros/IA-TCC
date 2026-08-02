@@ -1,0 +1,42 @@
+{
+  "ambiente": {
+    "python": "3.13.5",
+    "plataforma": "Windows-11-10.0.26200-SP0",
+    "processador": "AMD64 Family 23 Model 24 Stepping 1, AuthenticAMD",
+    "torch": "2.13.0+cpu",
+    "ultralytics": "8.4.95",
+    "numpy": "2.1.3",
+    "cuda_disponivel": "False"
+  },
+  "n_imagens": 100,
+  "aquecimento": 10,
+  "meta_rnf01_ms": 100.0,
+  "medicoes": [
+    {
+      "n": 100,
+      "aquecimento": 10,
+      "dispositivo": "cpu",
+      "mediana": 20.1,
+      "media": 23.23,
+      "p95": 38.27,
+      "p99": 81.34,
+      "minimo": 17.07,
+      "maximo": 91.2,
+      "rotulo": "PyTorch / CPU",
+      "modelo": "yolo11n_cls_alface.pt"
+    },
+    {
+      "n": 100,
+      "aquecimento": 10,
+      "dispositivo": "cpu",
+      "mediana": 12.73,
+      "media": 16.15,
+      "p95": 32.69,
+      "p99": 78.98,
+      "minimo": 9.08,
+      "maximo": 85.37,
+      "rotulo": "ONNX / CPU",
+      "modelo": "yolo11n_cls_alface.onnx"
+    }
+  ]
+}

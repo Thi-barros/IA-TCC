@@ -1,0 +1,18 @@
+# Dependências de DESENVOLVIMENTO — treino, avaliação, exportação e testes.
+#
+# Inclui as de produção. Instale a partir da raiz do projeto:
+#     pip install -r desenvolvimento/requirements-dev.txt
+
+-r ../requirements.txt
+
+# Manipulação de dados (dados.py, treino.py, avaliacao.py)
+pandas>=2.2
+
+# Divisão estratificada por grupo e métricas (dados.py, avaliacao.py)
+scikit-learn>=1.5
+
+# Conversão do modelo para ONNX (exportacao.py)
+onnx>=1.17
+
+# Testes automatizados
+pytest>=8.0

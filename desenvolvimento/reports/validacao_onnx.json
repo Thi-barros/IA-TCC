@@ -1,0 +1,13 @@
+{
+  "aprovado": true,
+  "n_imagens": 20,
+  "divergencia_maxima": 4.172e-07,
+  "divergencia_media": 3.709e-08,
+  "classes_divergentes": 0,
+  "atol": 0.001,
+  "pesos_pytorch": "C:\\Users\\ASUS\\Documents\\Thiago\\UNIP\\TCC\\modelos\\yolo11n_cls_alface.pt",
+  "modelo_onnx": "C:\\Users\\ASUS\\Documents\\Thiago\\UNIP\\TCC\\modelos\\yolo11n_cls_alface.onnx",
+  "modelo_torchscript": "C:\\Users\\ASUS\\Documents\\Thiago\\UNIP\\TCC\\modelos\\yolo11n_cls_alface.torchscript",
+  "imgsz": 224,
+  "opset": 17
+}

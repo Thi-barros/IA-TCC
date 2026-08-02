@@ -1,0 +1,56 @@
+# ---------------------------------------------------------------------------
+# Dados e artefatos pesados — todos regeneráveis, nenhum vai para o Git.
+# ---------------------------------------------------------------------------
+
+# Dataset original (~966 MB, 2813 arquivos). Datasets públicos se referenciam
+# pela origem, não se versionam. Ver docs/README.md.
+desenvolvimento/dataset/
+
+# Dataset derivado (regenerável por desenvolvimento/scripts/01_preparar_dataset.py)
+desenvolvimento/dataset_clean/
+
+# Execuções de treinamento do Ultralytics
+desenvolvimento/runs/
+
+# Pesos base baixados pelo Ultralytics
+desenvolvimento/pesos_base/
+
+# Pacotes para upload no Colab
+*.zip
+
+# ---------------------------------------------------------------------------
+# Mantidos apenas localmente, por decisão do autor.
+# NÃO são regeneráveis — faça backup próprio. Ver desenvolvimento/README.md.
+# ---------------------------------------------------------------------------
+desenvolvimento/notebooks/
+desenvolvimento/tcc/
+
+# ---------------------------------------------------------------------------
+# Modelos treinados — distribuídos por Release do GitHub, não pelo repositório.
+# ---------------------------------------------------------------------------
+modelos/*.pt
+modelos/*.onnx
+modelos/*.torchscript
+
+# ---------------------------------------------------------------------------
+# Saídas de execução local
+# ---------------------------------------------------------------------------
+mapas_de_calor/
+desenvolvimento/reports/heatmaps/
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# ---------------------------------------------------------------------------
+# Sistema
+# ---------------------------------------------------------------------------
+Thumbs.db
+desktop.ini
+.DS_Store
