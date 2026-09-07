@@ -15,7 +15,7 @@ tempo de execução pela API, ele está aqui.
 | Caminho | O que é | Versionado no Git |
 | --- | --- | :---: |
 | `scripts/` | Pipeline 01–05 e utilitários | sim |
-| `tests/` | 93 testes automatizados | sim |
+| `tests/` | 101 testes automatizados | sim |
 | `reports/` | Métricas, figuras e relatórios do TCC | sim |
 | `requirements-dev.txt` | Dependências extras de desenvolvimento | sim |
 | `notebooks/` | Treinamento em GPU no Google Colab | **não** |

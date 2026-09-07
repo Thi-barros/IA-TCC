@@ -50,7 +50,11 @@ class Configuracao:
         limiar_confianca: Confiança mínima para que uma detecção de patógeno
             acione o campo ``alerta``.
         tamanho_maximo_mb: Limite do corpo da requisição, em megabytes.
-        cors_origens: Origens autorizadas. ``["*"]`` libera todas.
+        cors_origens: Origens autorizadas. ``["*"]`` libera todas. **Atenção:**
+            definir a variável como texto vazio cai no padrão permissivo; para
+            restringir, informe as origens explicitamente.
+        chave_api: Chave exigida no cabeçalho ``X-API-Key`` pelas rotas de
+            inferência. Vazia desativa a autenticação.
         titulo: Título exibido na documentação interativa.
     """
 
@@ -74,6 +78,7 @@ class Configuracao:
     cors_origens: list[str] = field(
         default_factory=lambda: _lista("IA_ALFACE_CORS_ORIGENS", ["*"])
     )
+    chave_api: str = field(default_factory=lambda: _texto("IA_ALFACE_CHAVE_API", ""))
     titulo: str = "API de Detecção de Doenças Foliares em Alface"
 
     @property
@@ -85,6 +90,18 @@ class Configuracao:
     def suporta_heatmap(self) -> bool:
         """Grad-CAM exige os pesos ``.pt``; modelos exportados não servem."""
         return self.caminho_modelo.suffix.lower() == ".pt"
+
+    @property
+    def exige_autenticacao(self) -> bool:
+        """Indica se as rotas de inferência exigem chave de API.
+
+        A autenticação liga apenas quando ``IA_ALFACE_CHAVE_API`` está definida.
+        Sem ela o serviço se comporta como sempre — desenvolvimento local, a
+        página ``/teste`` e a suíte automatizada seguem sem credencial. A
+        proteção existe para a implantação, onde o serviço fica exposto na
+        internet.
+        """
+        return bool(self.chave_api)
 
 
 CONFIGURACAO = Configuracao()

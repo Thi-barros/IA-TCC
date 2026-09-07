@@ -47,6 +47,15 @@ Com o serviço no ar, a documentação interativa fica em <http://localhost:8000
 Ela é gerada automaticamente a partir do código e permite testar os endpoints
 pelo navegador — é o ponto de partida recomendado para quem for integrar.
 
+Em container, localmente ou em Azure Container Apps:
+
+```bash
+docker run --rm -p 8000:8000 ia-alface:local
+```
+
+Construção da imagem, publicação e ciclo de atualização em
+[`../docs/IMPLANTACAO.md`](../docs/IMPLANTACAO.md).
+
 ---
 
 ## Testar com suas próprias imagens
@@ -118,6 +127,7 @@ padrão do Python — não requer `requests`.
 | `POST` | `/analyze` | Classificar imagem enviada como `multipart/form-data` |
 | `POST` | `/analyze/raw` | Classificar imagem enviada como corpo bruto |
 | `GET` | `/docs` | Documentação interativa (Swagger UI) |
+| `GET` | `/redoc` | Mesma documentação em formato de leitura (ReDoc) |
 | `GET` | `/openapi.json` | Contrato OpenAPI, para gerar clientes |
 
 Ambas as rotas de inferência aceitam o parâmetro de consulta `?heatmap=true`,
@@ -131,6 +141,33 @@ clientes HTTP comuns. Use no dashboard e em testes.
 `/analyze/raw` recebe os bytes da imagem diretamente no corpo. É a rota indicada
 para o **ESP32-CAM**: montar um envelope multipart em microcontrolador consome
 memória e tempo, enquanto enviar o buffer JPEG cru é uma única chamada.
+
+---
+
+## Documentação do contrato
+
+Com o serviço no ar, o Swagger UI fica em `/docs` — nele é possível enviar uma
+imagem e ver a resposta sem escrever código. O mesmo contrato, em formato de
+leitura, fica em `/redoc`, e o arquivo bruto em `/openapi.json`.
+
+Uma cópia estática vive em `docs/`, para consultar sem subir o serviço e para
+anexar ao TCC:
+
+| Arquivo | Uso |
+| --- | --- |
+| [`docs/swagger.html`](../docs/swagger.html) | Swagger UI autocontido; abre com duplo clique |
+| [`docs/openapi.json`](../docs/openapi.json) | Contrato para Postman, Insomnia ou geradores de cliente |
+
+Os dois são gerados a partir do código — nunca editados à mão:
+
+```bash
+python desenvolvimento/scripts/gerar_openapi.py
+```
+
+Rode o comando após alterar rotas ou esquemas, senão a cópia estática diverge
+do serviço. A página estática grava `http://localhost:8000` como servidor, de
+modo que o botão *Try it out* funcione com o serviço rodando localmente; use
+`--servidor` para apontar para outro endereço.
 
 ---
 
@@ -310,15 +347,38 @@ definida.
 | `IA_ALFACE_LIMIAR` | `0.85` | Confiança mínima para `alerta` |
 | `IA_ALFACE_MAX_MB` | `10` | Limite do corpo da requisição |
 | `IA_ALFACE_CORS_ORIGENS` | `*` | Origens autorizadas, separadas por vírgula |
+| `IA_ALFACE_CHAVE_API` | vazio | Chave exigida em `X-API-Key`. Vazia desativa a autenticação |
 
 Exemplo de produção:
 
 ```bash
-IA_ALFACE_MODELO=modelos/yolo11n_cls_alface.onnx IA_ALFACE_CORS_ORIGENS=https://estufa.exemplo.br python -m uvicorn api.main:app --host 0.0.0.0
+IA_ALFACE_MODELO=modelos/yolo11n_cls_alface.onnx IA_ALFACE_CORS_ORIGENS=https://estufa.exemplo.br IA_ALFACE_CHAVE_API=<chave> python -m uvicorn api.main:app --host 0.0.0.0
 ```
 
 > **Antes de implantar publicamente**, restrinja `IA_ALFACE_CORS_ORIGENS` às
 > origens do dashboard. O padrão `*` é adequado apenas em desenvolvimento.
+>
+> Atenção: definir a variável como texto **vazio** não restringe nada — o valor
+> em branco cai no padrão `*`, mais permissivo que não defini-la. Informe as
+> origens explicitamente.
+
+### Autenticação
+
+Enquanto `IA_ALFACE_CHAVE_API` não é definida, o serviço aceita qualquer
+chamada — comportamento adequado ao desenvolvimento local e à página `/teste`.
+Definida a variável, `POST /analyze` e `POST /analyze/raw` passam a exigir o
+cabeçalho:
+
+```bash
+curl -X POST https://<host>/analyze/raw -H "Content-Type: image/jpeg" -H "X-API-Key: <chave>" --data-binary @folha.jpg
+```
+
+`GET /health` e `GET /info` permanecem abertos: a sonda do orquestrador precisa
+alcançar o primeiro, e nenhum dos dois executa inferência.
+
+A chave destina-se a consumidores **servidor a servidor** — a Function e o
+back-end. Não a coloque num front-end: qualquer visitante a leria no navegador.
+O dashboard consulta o back-end, não este serviço.
 
 ### Escolha do formato do modelo
 

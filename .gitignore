@@ -39,6 +39,14 @@ mapas_de_calor/
 desenvolvimento/reports/heatmaps/
 
 # ---------------------------------------------------------------------------
+# Segredos — credenciais de nuvem JAMAIS vão para o repositório.
+# Use .env.exemplo como modelo. Ver desenvolvimento/scripts/verificar_blob.py.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.exemplo
+
+# ---------------------------------------------------------------------------
 # Python
 # ---------------------------------------------------------------------------
 __pycache__/

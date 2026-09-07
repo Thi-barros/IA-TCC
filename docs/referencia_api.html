@@ -1,0 +1,1563 @@
+<title>API de Detecção de Doenças Foliares em Alface — Referência</title>
+
+<style>
+  :root {
+    --papel: #F4F5F0;
+    --carta: #FFFFFF;
+    --carta-2: #FAFBF7;
+    --tinta: #191F1C;
+    --tinta-2: #59615B;
+    --tinta-3: #868D86;
+    --regua: #DCDFD6;
+    --regua-forte: #C3C8BC;
+    --cia: #1F4C79;
+    --cia-2: #2E6DA4;
+    --cia-lav: #E5EDF6;
+    --saudavel: #3F7A3B;
+    --bacteriano: #8F6318;
+    --fungico: #63508A;
+    --critico: #9B3B2E;
+    --sombra: 0 1px 2px rgba(25, 31, 28, .05), 0 10px 28px -16px rgba(25, 31, 28, .28);
+
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --corpo: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    --mono: Consolas, "Cascadia Mono", "SF Mono", "JetBrains Mono", "Liberation Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --papel: #0F1210;
+      --carta: #171B17;
+      --carta-2: #1C211C;
+      --tinta: #E6EAE2;
+      --tinta-2: #9BA399;
+      --tinta-3: #767E75;
+      --regua: #282E27;
+      --regua-forte: #3A4239;
+      --cia: #8FBEE8;
+      --cia-2: #6FA6D6;
+      --cia-lav: #16283A;
+      --saudavel: #82BC76;
+      --bacteriano: #D5A54D;
+      --fungico: #AE99D2;
+      --critico: #E08A78;
+      --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -16px rgba(0, 0, 0, .6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --papel: #0F1210;
+    --carta: #171B17;
+    --carta-2: #1C211C;
+    --tinta: #E6EAE2;
+    --tinta-2: #9BA399;
+    --tinta-3: #767E75;
+    --regua: #282E27;
+    --regua-forte: #3A4239;
+    --cia: #8FBEE8;
+    --cia-2: #6FA6D6;
+    --cia-lav: #16283A;
+    --saudavel: #82BC76;
+    --bacteriano: #D5A54D;
+    --fungico: #AE99D2;
+    --critico: #E08A78;
+    --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -16px rgba(0, 0, 0, .6);
+  }
+
+  :root[data-theme="light"] {
+    --papel: #F4F5F0;
+    --carta: #FFFFFF;
+    --carta-2: #FAFBF7;
+    --tinta: #191F1C;
+    --tinta-2: #59615B;
+    --tinta-3: #868D86;
+    --regua: #DCDFD6;
+    --regua-forte: #C3C8BC;
+    --cia: #1F4C79;
+    --cia-2: #2E6DA4;
+    --cia-lav: #E5EDF6;
+    --saudavel: #3F7A3B;
+    --bacteriano: #8F6318;
+    --fungico: #63508A;
+    --critico: #9B3B2E;
+    --sombra: 0 1px 2px rgba(25, 31, 28, .05), 0 10px 28px -16px rgba(25, 31, 28, .28);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--corpo);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--cia-lav); }
+
+  a { color: var(--cia); text-underline-offset: .18em; text-decoration-thickness: .06em; }
+  a:focus-visible,
+  summary:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--cia-2);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  code, pre, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- estrutura ---------- */
+
+  .folha {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0 56px;
+  }
+
+  @media (min-width: 1060px) {
+    .folha { grid-template-columns: 218px minmax(0, 1fr); }
+    .trilho { grid-column: 1; grid-row: 2; }
+    .corrente { grid-column: 2; grid-row: 2; }
+    .masthead { grid-column: 1 / -1; grid-row: 1; }
+  }
+
+  .corrente { min-width: 0; display: flex; flex-direction: column; gap: 60px; }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    padding: 64px 0 40px;
+    border-bottom: 1px solid var(--regua-forte);
+    margin-bottom: 48px;
+  }
+
+  .sobrescrito {
+    font-size: 11.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+    margin: 0 0 18px;
+    font-weight: 600;
+  }
+
+  .masthead h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(2.1rem, 5.2vw, 3.15rem);
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    margin: 0 0 20px;
+    max-width: 19ch;
+  }
+
+  .subtitulo {
+    font-size: 1.06rem;
+    color: var(--tinta-2);
+    max-width: 62ch;
+    margin: 0 0 32px;
+  }
+
+  .subtitulo em { font-family: var(--display); font-size: 1.04em; }
+
+  .fichas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border: 1px solid var(--regua);
+    border-radius: 3px;
+    overflow: hidden;
+    background: var(--carta);
+    max-width: 860px;
+  }
+
+  .ficha {
+    padding: 12px 20px;
+    border-right: 1px solid var(--regua);
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ficha:last-child { border-right: 0; }
+
+  .ficha dt {
+    font-size: 10.5px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .ficha dd { margin: 0; font-family: var(--mono); font-size: 13.5px; color: var(--tinta); }
+
+  /* ---------- trilho ---------- */
+
+  .trilho { display: none; }
+
+  @media (min-width: 1060px) {
+    .trilho {
+      display: block;
+      position: sticky;
+      top: 32px;
+      align-self: start;
+      max-height: calc(100vh - 64px);
+      overflow-y: auto;
+      padding-bottom: 24px;
+      font-size: 13.5px;
+      scrollbar-width: none;
+    }
+    .trilho::-webkit-scrollbar { width: 0; height: 0; }
+  }
+
+  .trilho h2 {
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+    font-weight: 600;
+    margin: 0 0 12px;
+    font-family: var(--corpo);
+  }
+
+  .trilho ul { list-style: none; margin: 0 0 26px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .trilho a {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 4px 8px 4px 0;
+    color: var(--tinta-2);
+    text-decoration: none;
+    border-radius: 2px;
+  }
+  .trilho a:hover { color: var(--cia); }
+  .trilho .via { font-family: var(--mono); font-size: 12.5px; }
+
+  /* ---------- seções ---------- */
+
+  section { scroll-margin-top: 24px; }
+
+  h2.secao {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 1.72rem;
+    letter-spacing: -.01em;
+    margin: 0 0 6px;
+  }
+
+  .secao-nota { color: var(--tinta-2); margin: 0 0 26px; max-width: 66ch; }
+
+  h3.sub {
+    font-size: 11.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+    font-weight: 600;
+    margin: 0 0 12px;
+  }
+
+  p { max-width: 68ch; }
+
+  /* ---------- escopo ---------- */
+
+  .escopo { display: grid; gap: 20px; grid-template-columns: 1fr; }
+  @media (min-width: 720px) { .escopo { grid-template-columns: 1fr 1fr; } }
+
+  .cartao {
+    background: var(--carta);
+    border: 1px solid var(--regua);
+    border-radius: 4px;
+    padding: 20px 22px;
+  }
+
+  .cartao ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; }
+  .cartao li { color: var(--tinta-2); }
+  .cartao li strong { color: var(--tinta); font-weight: 600; }
+  .cartao.nao li::marker { color: var(--tinta-3); }
+  .cartao.faz { border-top: 3px solid var(--cia); }
+  .cartao.nao { border-top: 3px solid var(--regua-forte); }
+
+  /* ---------- classes ---------- */
+
+  .especimes { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 780px) { .especimes { grid-template-columns: repeat(3, 1fr); } }
+
+  .especime {
+    background: var(--carta);
+    border: 1px solid var(--regua);
+    border-top: 4px solid var(--cor);
+    border-radius: 4px;
+    padding: 18px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .especime .indice {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--tinta-3);
+    letter-spacing: .06em;
+  }
+  .especime .canonico {
+    font-family: var(--mono);
+    font-size: 1.22rem;
+    font-weight: 700;
+    color: var(--cor);
+    letter-spacing: -.01em;
+  }
+  .especime .exibicao { font-size: 14px; color: var(--tinta); margin-top: 6px; }
+  .especime .patogeno {
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 14.5px;
+    color: var(--tinta-2);
+  }
+  .especime .nota { font-size: 12.5px; color: var(--tinta-3); margin-top: 10px; }
+
+  /* ---------- endpoints ---------- */
+
+  .endpoints { display: flex; flex-direction: column; gap: 14px; }
+
+  details.rota {
+    background: var(--carta);
+    border: 1px solid var(--regua);
+    border-radius: 4px;
+    box-shadow: var(--sombra);
+    overflow: hidden;
+  }
+
+  details.rota[open] { border-color: var(--regua-forte); }
+
+  summary.cabeca {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  summary.cabeca::-webkit-details-marker { display: none; }
+  summary.cabeca:hover { background: var(--carta-2); }
+
+  .verbo {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .09em;
+    padding: 4px 9px;
+    border-radius: 3px;
+    flex: none;
+  }
+  .verbo.get { color: var(--cia); border: 1px solid var(--cia); background: transparent; }
+  .verbo.post { color: var(--carta); background: var(--cia); border: 1px solid var(--cia); }
+
+  .caminho {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+  }
+
+  .resumo { color: var(--tinta-2); font-size: 14px; flex: 1 1 240px; min-width: 0; }
+
+  .seta {
+    flex: none;
+    color: var(--tinta-3);
+    font-size: 11px;
+    transition: transform .18s ease;
+  }
+  details.rota[open] .seta { transform: rotate(90deg); }
+
+  .corpo-rota {
+    padding: 4px 20px 24px;
+    border-top: 1px solid var(--regua);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .corpo-rota > p:first-child { margin-top: 18px; }
+
+  .bloco { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ---------- tabelas ---------- */
+
+  .rolagem { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 460px;
+  }
+
+  th {
+    text-align: left;
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+    font-weight: 600;
+    padding: 0 14px 8px 0;
+    border-bottom: 1px solid var(--regua-forte);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 9px 14px 9px 0;
+    border-bottom: 1px solid var(--regua);
+    vertical-align: top;
+    color: var(--tinta-2);
+  }
+  tr:last-child td { border-bottom: 0; }
+  td:last-child, th:last-child { padding-right: 0; }
+
+  td .campo { font-family: var(--mono); font-size: 13px; color: var(--tinta); font-weight: 600; }
+  td .tipo { font-family: var(--mono); font-size: 12.5px; color: var(--tinta-3); white-space: nowrap; }
+  td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .obrig {
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--critico);
+    font-weight: 700;
+  }
+  .opcional { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-3); font-weight: 600; }
+
+  .codigo-st { font-family: var(--mono); font-weight: 700; font-size: 14px; }
+  .st-2 { color: var(--saudavel); }
+  .st-4 { color: var(--bacteriano); }
+  .st-5 { color: var(--critico); }
+
+  .nulo { font-family: var(--mono); font-size: 12.5px; color: var(--fungico); font-weight: 600; }
+
+  /* ---------- código ---------- */
+
+  .caixa-cod { position: relative; }
+
+  pre {
+    margin: 0;
+    background: var(--carta-2);
+    border: 1px solid var(--regua);
+    border-radius: 4px;
+    padding: 15px 18px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.62;
+    color: var(--tinta);
+  }
+
+  .copiar {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-family: var(--corpo);
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--tinta-3);
+    background: var(--carta);
+    border: 1px solid var(--regua);
+    border-radius: 3px;
+    padding: 4px 9px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s ease, color .15s ease;
+  }
+  .caixa-cod:hover .copiar,
+  .copiar:focus-visible { opacity: 1; }
+  .copiar:hover { color: var(--cia); border-color: var(--cia); }
+  .copiar[data-feito="1"] { color: var(--saudavel); border-color: var(--saudavel); opacity: 1; }
+
+  .j-chave { color: var(--cia-2); }
+  .j-txt { color: var(--saudavel); }
+  .j-num { color: var(--bacteriano); }
+  .j-lit { color: var(--fungico); font-weight: 600; }
+  .j-com { color: var(--tinta-3); font-style: italic; }
+
+  /* ---------- abas ---------- */
+
+  .abas { display: flex; gap: 2px; border-bottom: 1px solid var(--regua); flex-wrap: wrap; }
+
+  .aba {
+    font-family: var(--corpo);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tinta-3);
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    padding: 8px 14px;
+    cursor: pointer;
+    margin-bottom: -1px;
+  }
+  .aba:hover { color: var(--tinta); }
+  .aba[aria-selected="true"] { color: var(--cia); border-bottom-color: var(--cia); }
+
+  .painel { padding-top: 14px; }
+  .painel[hidden] { display: none; }
+
+  /* ---------- avisos ---------- */
+
+  .aviso {
+    border-left: 3px solid var(--cor, var(--cia));
+    background: var(--carta);
+    border-top: 1px solid var(--regua);
+    border-right: 1px solid var(--regua);
+    border-bottom: 1px solid var(--regua);
+    border-radius: 0 4px 4px 0;
+    padding: 15px 20px;
+    font-size: 14.5px;
+    color: var(--tinta-2);
+    max-width: 74ch;
+  }
+  .aviso strong { color: var(--tinta); }
+  .aviso p { margin: 0; max-width: none; }
+  .aviso p + p { margin-top: 9px; }
+
+  .rodape {
+    border-top: 1px solid var(--regua-forte);
+    margin-top: 20px;
+    padding-top: 22px;
+    font-size: 13px;
+    color: var(--tinta-3);
+    max-width: 74ch;
+  }
+  .rodape p { max-width: none; margin: 0 0 8px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="folha">
+
+  <header class="masthead">
+    <p class="sobrescrito">TCC · UNIP 2026 · Módulo de inteligência artificial</p>
+    <h1>API de Detecção de Doenças Foliares em Alface</h1>
+    <p class="subtitulo">
+      Serviço HTTP que expõe o classificador YOLO11-cls treinado neste trabalho. Recebe uma
+      imagem de folha de alface (<em>Lactuca sativa</em>) e devolve a classe, a confiança e as
+      três probabilidades — para que o back-end, o dashboard e o ESP32-CAM consumam a IA sem
+      instalar PyTorch nem conhecer detalhes do modelo.
+    </p>
+    <dl class="fichas">
+      <div class="ficha"><dt>Versão</dt><dd>1.0.0</dd></div>
+      <div class="ficha"><dt>Contrato</dt><dd>OpenAPI 3.1.0</dd></div>
+      <div class="ficha"><dt>Base URL</dt><dd>http://localhost:8000</dd></div>
+      <div class="ficha"><dt>Autenticação</dt><dd>nenhuma</dd></div>
+      <div class="ficha"><dt>Formato</dt><dd>application/json</dd></div>
+    </dl>
+  </header>
+
+  <nav class="trilho" aria-label="Índice">
+    <h2>Endpoints</h2>
+    <ul>
+      <li><a href="#health"><span class="via">GET</span> /health</a></li>
+      <li><a href="#info"><span class="via">GET</span> /info</a></li>
+      <li><a href="#analyze"><span class="via">POST</span> /analyze</a></li>
+      <li><a href="#analyze-raw"><span class="via">POST</span> /analyze/raw</a></li>
+      <li><a href="#auxiliares"><span class="via">···</span> auxiliares</a></li>
+    </ul>
+    <h2>Contrato</h2>
+    <ul>
+      <li><a href="#classes">As três classes</a></li>
+      <li><a href="#esquemas">Esquemas</a></li>
+      <li><a href="#alerta">O campo alerta</a></li>
+      <li><a href="#status">Códigos de status</a></li>
+      <li><a href="#banco">Tabela deteccoes</a></li>
+    </ul>
+    <h2>Uso</h2>
+    <ul>
+      <li><a href="#inicio">Início rápido</a></li>
+      <li><a href="#integracao">Integração</a></li>
+      <li><a href="#config">Configuração</a></li>
+      <li><a href="#desempenho">Desempenho</a></li>
+      <li><a href="#contrato">Gerar clientes</a></li>
+    </ul>
+  </nav>
+
+  <main class="corrente">
+
+    <!-- ESCOPO -->
+    <section id="escopo">
+      <h2 class="secao">Escopo do serviço</h2>
+      <p class="secao-nota">
+        Este serviço faz <strong>uma coisa</strong>: recebe uma imagem de folha e devolve a
+        classificação. Tudo o mais é responsabilidade do back-end da aplicação, que consome
+        esta API.
+      </p>
+      <div class="escopo">
+        <div class="cartao faz">
+          <h3 class="sub">Faz</h3>
+          <ul>
+            <li>Classifica em <strong>saudavel</strong> / <strong>bacteriano</strong> / <strong>fungico</strong></li>
+            <li>Devolve confiança e as três probabilidades</li>
+            <li>Indica se o alerta deve disparar</li>
+            <li>Gera mapa de calor Grad-CAM sob demanda</li>
+          </ul>
+        </div>
+        <div class="cartao nao">
+          <h3 class="sub">Não faz</h3>
+          <ul>
+            <li>Persiste na tabela <code>deteccoes</code></li>
+            <li>Publica ou consome MQTT</li>
+            <li>Envia notificação push (RF07)</li>
+            <li>Autentica usuários</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- INÍCIO RÁPIDO -->
+    <section id="inicio">
+      <h2 class="secao">Início rápido</h2>
+      <p class="secao-nota">
+        Suba o serviço e envie uma foto. O modelo é carregado uma única vez, na inicialização —
+        a primeira requisição já responde quente.
+      </p>
+      <div class="bloco">
+        <h3 class="sub">1 · Subir o serviço</h3>
+        <div class="caixa-cod">
+          <pre class="sh">python -m uvicorn api.main:app --host 0.0.0.0 --port 8000</pre>
+        </div>
+      </div>
+      <div class="bloco" style="margin-top:22px">
+        <h3 class="sub">2 · Classificar uma imagem</h3>
+        <div class="caixa-cod">
+          <pre class="sh">curl -X POST -F "imagem=@folha.jpg" http://localhost:8000/analyze</pre>
+        </div>
+      </div>
+      <div class="bloco" style="margin-top:22px">
+        <h3 class="sub">3 · Resposta</h3>
+        <div class="caixa-cod">
+<pre class="json">{
+  "classe": "fungico",
+  "classe_exibicao": "Fúngico (Bremia lactucae)",
+  "confianca": 0.956,
+  "probabilidades": {
+    "bacteriano": 0.021,
+    "fungico": 0.956,
+    "saudavel": 0.023
+  },
+  "patogeno_detectado": true,
+  "alerta": true,
+  "tempo_inferencia_ms": 40.6,
+  "detectado_em": "2026-08-02T22:01:37.067680+00:00",
+  "modelo_versao": "yolo11n_cls_alface.pt",
+  "bbox_x": null,
+  "bbox_y": null,
+  "bbox_w": null,
+  "bbox_h": null,
+  "heatmap_base64": null
+}</pre>
+        </div>
+      </div>
+      <div class="aviso" style="margin-top:22px">
+        <p>
+          Com o serviço no ar há também uma página de teste manual em
+          <code>/teste</code> — arraste fotos e veja classe, confiança, probabilidades e o JSON
+          devolvido, sem escrever código. E o Swagger UI vivo, gerado do mesmo contrato desta
+          página, em <code>/docs</code>.
+        </p>
+      </div>
+    </section>
+
+    <!-- CLASSES -->
+    <section id="classes">
+      <h2 class="secao">As três classes</h2>
+      <p class="secao-nota">
+        Os rótulos canônicos correspondem exatamente ao <code>ENUM</code> da coluna
+        <code>classe</code> da tabela <code>deteccoes</code>: sem acentos, em minúsculas.
+        Grave o valor de <code>classe</code>; use <code>classe_exibicao</code> na interface.
+      </p>
+      <div class="especimes">
+        <div class="especime" style="--cor: var(--saudavel)">
+          <span class="indice">índice 2</span>
+          <span class="canonico">saudavel</span>
+          <span class="exibicao">Saudável</span>
+          <span class="patogeno">sem patógeno</span>
+          <span class="nota">Revocação medida: 0,9929</span>
+        </div>
+        <div class="especime" style="--cor: var(--bacteriano)">
+          <span class="indice">índice 0</span>
+          <span class="canonico">bacteriano</span>
+          <span class="exibicao">Bacteriano</span>
+          <span class="patogeno">Xanthomonas campestris</span>
+          <span class="nota">Revocação medida: 0,9717</span>
+        </div>
+        <div class="especime" style="--cor: var(--fungico)">
+          <span class="indice">índice 1</span>
+          <span class="canonico">fungico</span>
+          <span class="exibicao">Fúngico</span>
+          <span class="patogeno">Bremia lactucae</span>
+          <span class="nota">Revocação medida: 0,8462 — classe mais difícil</span>
+        </div>
+      </div>
+      <div class="aviso" style="margin-top:20px; --cor: var(--fungico)">
+        <p>
+          <strong>Não escreva esses rótulos à mão no front-end.</strong> Consulte
+          <code>GET /info</code>, que devolve índice, rótulo canônico, rótulo de exibição e se
+          há patógeno. Uma divergência de grafia grava dado inválido no <code>ENUM</code> do
+          PostgreSQL sem gerar erro visível.
+        </p>
+      </div>
+    </section>
+
+    <!-- ENDPOINTS -->
+    <section id="endpoints">
+      <h2 class="secao">Endpoints</h2>
+      <p class="secao-nota">
+        Quatro rotas no contrato: duas de operação e duas de inferência. Ambas as rotas de
+        inferência aceitam <code>?heatmap=true</code> e devolvem exatamente o mesmo corpo de
+        resposta — mudam apenas no formato de envio.
+      </p>
+
+      <div class="endpoints">
+
+        <!-- /health -->
+        <details class="rota" id="health">
+          <summary class="cabeca">
+            <span class="verbo get">GET</span>
+            <span class="caminho">/health</span>
+            <span class="resumo">Verificar disponibilidade do serviço</span>
+            <span class="seta" aria-hidden="true">▶</span>
+          </summary>
+          <div class="corpo-rota">
+            <p>
+              Informa se o modelo está carregado e pronto para inferência. Adequado para
+              <em>health check</em> de orquestradores e balanceadores. Não recebe parâmetros.
+            </p>
+            <div class="aviso">
+              <p>
+                <strong>Responde 200 mesmo com o modelo fora.</strong> Uma falha de carregamento
+                não derruba o serviço: ela é reportada aqui, em <code>status: "erro"</code> com a
+                causa em <code>detalhe</code>. Verifique o campo, não só o código HTTP.
+              </p>
+            </div>
+            <div class="bloco">
+              <h3 class="sub">Resposta 200 · modelo carregado</h3>
+              <div class="caixa-cod">
+<pre class="json">{
+  "status": "ok",
+  "modelo_carregado": true,
+  "modelo_versao": "yolo11n_cls_alface.pt",
+  "dispositivo": "cpu",
+  "detalhe": null
+}</pre>
+              </div>
+            </div>
+            <div class="bloco">
+              <h3 class="sub">Resposta 200 · modelo indisponível</h3>
+              <div class="caixa-cod">
+<pre class="json">{
+  "status": "erro",
+  "modelo_carregado": false,
+  "modelo_versao": null,
+  "dispositivo": null,
+  "detalhe": "Arquivo de pesos não encontrado: modelos/yolo11n_cls_alface.pt"
+}</pre>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- /info -->
+        <details class="rota" id="info">
+          <summary class="cabeca">
+            <span class="verbo get">GET</span>
+            <span class="caminho">/info</span>
+            <span class="resumo">Consultar metadados do modelo</span>
+            <span class="seta" aria-hidden="true">▶</span>
+          </summary>
+          <div class="corpo-rota">
+            <p>
+              Devolve as classes reconhecidas e os parâmetros em vigor. Serve para o dashboard
+              montar legendas e rótulos sem duplicar as definições de classe no front-end, e
+              para descobrir em tempo de execução se o Grad-CAM está disponível e qual o limite
+              de tamanho de imagem.
+            </p>
+            <div class="bloco">
+              <h3 class="sub">Respostas</h3>
+              <div class="rolagem">
+                <table>
+                  <thead><tr><th>Código</th><th>Corpo</th><th>Quando</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="codigo-st st-2">200</span></td>
+                      <td><span class="campo">RespostaInfo</span></td>
+                      <td>Modelo carregado</td>
+                    </tr>
+                    <tr>
+                      <td><span class="codigo-st st-5">503</span></td>
+                      <td><span class="campo">RespostaErro</span></td>
+                      <td>Modelo indisponível</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="bloco">
+              <h3 class="sub">Resposta 200</h3>
+              <div class="caixa-cod">
+<pre class="json">{
+  "modelo_versao": "yolo11n_cls_alface.pt",
+  "dispositivo": "cpu",
+  "imgsz": 224,
+  "limiar_confianca": 0.85,
+  "suporta_heatmap": true,
+  "tamanho_maximo_mb": 10.0,
+  "classes": [
+    { "indice": 0, "canonico": "bacteriano", "exibicao": "Bacteriano (Xanthomonas campestris)", "patogeno": true },
+    { "indice": 1, "canonico": "fungico",    "exibicao": "Fúngico (Bremia lactucae)",           "patogeno": true },
+    { "indice": 2, "canonico": "saudavel",   "exibicao": "Saudável",                            "patogeno": false }
+  ]
+}</pre>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- /analyze -->
+        <details class="rota" id="analyze" open>
+          <summary class="cabeca">
+            <span class="verbo post">POST</span>
+            <span class="caminho">/analyze</span>
+            <span class="resumo">Classificar imagem enviada como formulário</span>
+            <span class="seta" aria-hidden="true">▶</span>
+          </summary>
+          <div class="corpo-rota">
+            <p>
+              Classifica uma imagem enviada como <code>multipart/form-data</code>. Rota indicada
+              para o dashboard web, para testes manuais e para clientes que já trabalham com
+              formulários. Dispositivos embarcados devem preferir <code>/analyze/raw</code>.
+            </p>
+
+            <div class="bloco">
+              <h3 class="sub">Corpo da requisição · multipart/form-data</h3>
+              <div class="rolagem">
+                <table>
+                  <thead><tr><th>Campo</th><th>Tipo</th><th></th><th>Descrição</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="campo">imagem</span></td>
+                      <td><span class="tipo">binary</span></td>
+                      <td><span class="obrig">obrigatório</span></td>
+                      <td>Arquivo de imagem da folha (JPEG ou PNG). Máx. 10 MB por padrão.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bloco">
+              <h3 class="sub">Parâmetros de consulta</h3>
+              <div class="rolagem">
+                <table>
+                  <thead><tr><th>Nome</th><th>Tipo</th><th>Padrão</th><th>Descrição</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="campo">heatmap</span></td>
+                      <td><span class="tipo">boolean</span></td>
+                      <td><span class="tipo">false</span></td>
+                      <td>
+                        Inclui o mapa de calor Grad-CAM em <code>heatmap_base64</code>.
+                        Exige pesos <code>.pt</code>; com modelo <code>.onnx</code> a requisição
+                        responde <strong>400</strong>. Consulte <code>suporta_heatmap</code> em
+                        <code>/info</code> antes de pedir.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bloco">
+              <h3 class="sub">Respostas</h3>
+              <div class="rolagem">
+                <table>
+                  <thead><tr><th>Código</th><th>Corpo</th><th>Quando</th></tr></thead>
+                  <tbody>
+                    <tr><td><span class="codigo-st st-2">200</span></td><td><span class="campo">RespostaDeteccao</span></td><td>Classificação concluída</td></tr>
+                    <tr><td><span class="codigo-st st-4">400</span></td><td><span class="campo">RespostaErro</span></td><td>Imagem inválida, corrompida ou vazia</td></tr>
+                    <tr><td><span class="codigo-st st-4">413</span></td><td><span class="campo">RespostaErro</span></td><td>Imagem acima do limite</td></tr>
+                    <tr><td><span class="codigo-st st-4">422</span></td><td><span class="campo">HTTPValidationError</span></td><td>Campo <code>imagem</code> ausente</td></tr>
+                    <tr><td><span class="codigo-st st-5">503</span></td><td><span class="campo">RespostaErro</span></td><td>Modelo indisponível</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bloco">
+              <h3 class="sub">Exemplo</h3>
+              <div class="caixa-cod">
+<pre class="sh">curl -X POST -F "imagem=@folha.jpg" "http://localhost:8000/analyze?heatmap=true"</pre>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- /analyze/raw -->
+        <details class="rota" id="analyze-raw">
+          <summary class="cabeca">
+            <span class="verbo post">POST</span>
+            <span class="caminho">/analyze/raw</span>
+            <span class="resumo">Classificar imagem enviada como corpo bruto</span>
+            <span class="seta" aria-hidden="true">▶</span>
+          </summary>
+          <div class="corpo-rota">
+            <p>
+              Classifica os bytes de imagem enviados diretamente no corpo, sem envelope
+              multipart. Rota destinada ao <strong>ESP32-CAM</strong>: montar um multipart em
+              microcontrolador consome memória e tempo, enquanto enviar o buffer JPEG cru é uma
+              única chamada. A resposta é idêntica à de <code>/analyze</code>.
+            </p>
+
+            <div class="bloco">
+              <h3 class="sub">Corpo da requisição</h3>
+              <div class="rolagem">
+                <table>
+                  <thead><tr><th>Content-Type</th><th>Corpo</th><th></th><th>Descrição</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="campo">image/jpeg</span><br><span class="campo">image/png</span></td>
+                      <td><span class="tipo">binary</span></td>
+                      <td><span class="obrig">obrigatório</span></td>
+                      <td>Bytes da imagem, sem envelope multipart. Corpo vazio responde <strong>400</strong>.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bloco">
+              <h3 class="sub">Parâmetros de consulta</h3>
+              <div class="rolagem">
+                <table>
+                  <thead><tr><th>Nome</th><th>Tipo</th><th>Padrão</th><th>Descrição</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="campo">heatmap</span></td>
+                      <td><span class="tipo">boolean</span></td>
+                      <td><span class="tipo">false</span></td>
+                      <td>Idêntico a <code>/analyze</code>. Evite no ESP32: o PNG em base64 infla a resposta.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bloco">
+              <h3 class="sub">Respostas</h3>
+              <div class="rolagem">
+                <table>
+                  <thead><tr><th>Código</th><th>Corpo</th><th>Quando</th></tr></thead>
+                  <tbody>
+                    <tr><td><span class="codigo-st st-2">200</span></td><td><span class="campo">RespostaDeteccao</span></td><td>Classificação concluída</td></tr>
+                    <tr><td><span class="codigo-st st-4">400</span></td><td><span class="campo">RespostaErro</span></td><td>Imagem inválida, corrompida ou corpo vazio</td></tr>
+                    <tr><td><span class="codigo-st st-4">413</span></td><td><span class="campo">RespostaErro</span></td><td>Imagem acima do limite</td></tr>
+                    <tr><td><span class="codigo-st st-5">503</span></td><td><span class="campo">RespostaErro</span></td><td>Modelo indisponível</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bloco">
+              <h3 class="sub">Exemplo</h3>
+              <div class="caixa-cod">
+<pre class="sh">curl -X POST --data-binary "@folha.jpg" \
+     -H "Content-Type: image/jpeg" \
+     http://192.168.0.100:8000/analyze/raw</pre>
+              </div>
+            </div>
+          </div>
+        </details>
+
+      </div>
+
+      <div id="auxiliares" style="margin-top:34px">
+        <h3 class="sub">Rotas auxiliares — fora do contrato OpenAPI</h3>
+        <div class="rolagem">
+          <table>
+            <thead><tr><th>Método</th><th>Rota</th><th>Finalidade</th></tr></thead>
+            <tbody>
+              <tr><td><span class="campo">GET</span></td><td><span class="campo">/</span></td><td>Redireciona para <code>/teste</code></td></tr>
+              <tr><td><span class="campo">GET</span></td><td><span class="campo">/teste</span></td><td>Página de teste interativo, servida pela própria API (mesma origem, sem CORS)</td></tr>
+              <tr><td><span class="campo">GET</span></td><td><span class="campo">/docs</span></td><td>Swagger UI vivo, gerado pelo FastAPI</td></tr>
+              <tr><td><span class="campo">GET</span></td><td><span class="campo">/redoc</span></td><td>ReDoc, mesma fonte de dados</td></tr>
+              <tr><td><span class="campo">GET</span></td><td><span class="campo">/openapi.json</span></td><td>Contrato OpenAPI 3.1.0, para gerar clientes</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ESQUEMAS -->
+    <section id="esquemas">
+      <h2 class="secao">Esquemas</h2>
+      <p class="secao-nota">
+        Os campos de <code>RespostaDeteccao</code> correspondem um a um às colunas da tabela
+        <code>deteccoes</code>, para que o back-end persista o resultado sem transformação.
+      </p>
+
+      <h3 class="sub" style="margin-top:26px">RespostaDeteccao</h3>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th></th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="campo">classe</span></td>
+              <td><span class="tipo">string</span></td>
+              <td><span class="obrig">sempre</span></td>
+              <td>Rótulo canônico: <code>saudavel</code>, <code>bacteriano</code> ou <code>fungico</code>. Corresponde ao <code>ENUM</code> do banco.</td>
+            </tr>
+            <tr>
+              <td><span class="campo">classe_exibicao</span></td>
+              <td><span class="tipo">string</span></td>
+              <td><span class="obrig">sempre</span></td>
+              <td>Rótulo legível, para exibição na interface.</td>
+            </tr>
+            <tr>
+              <td><span class="campo">confianca</span></td>
+              <td><span class="tipo">number</span></td>
+              <td><span class="obrig">sempre</span></td>
+              <td>Confiança da classe predita, na faixa [0, 1].</td>
+            </tr>
+            <tr>
+              <td><span class="campo">probabilidades</span></td>
+              <td><span class="tipo">object</span></td>
+              <td><span class="obrig">sempre</span></td>
+              <td>Probabilidade atribuída a cada uma das três classes, indexada pelo rótulo canônico.</td>
+            </tr>
+            <tr>
+              <td><span class="campo">patogeno_detectado</span></td>
+              <td><span class="tipo">boolean</span></td>
+              <td><span class="obrig">sempre</span></td>
+              <td>Verdadeiro quando a classe predita não é <code>saudavel</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="campo">alerta</span></td>
+              <td><span class="tipo">boolean</span></td>
+              <td><span class="obrig">sempre</span></td>
+              <td>Verdadeiro quando há patógeno <em>e</em> a confiança atinge o limiar. É o gatilho da notificação push (RF07).</td>
+            </tr>
+            <tr>
+              <td><span class="campo">tempo_inferencia_ms</span></td>
+              <td><span class="tipo">number</span></td>
+              <td><span class="obrig">sempre</span></td>
+              <td>Tempo da inferência em milissegundos. Verifica o RNF01.</td>
+            </tr>
+            <tr>
+              <td><span class="campo">detectado_em</span></td>
+              <td><span class="tipo">string</span></td>
+              <td><span class="obrig">sempre</span></td>
+              <td>Instante da detecção em UTC, ISO 8601.</td>
+            </tr>
+            <tr>
+              <td><span class="campo">modelo_versao</span></td>
+              <td><span class="tipo">string</span></td>
+              <td><span class="obrig">sempre</span></td>
+              <td>Arquivo de pesos utilizado, para rastreabilidade.</td>
+            </tr>
+            <tr>
+              <td><span class="campo">bbox_x</span><br><span class="campo">bbox_y</span><br><span class="campo">bbox_w</span><br><span class="campo">bbox_h</span></td>
+              <td><span class="tipo">number | null</span></td>
+              <td><span class="nulo">sempre null</span></td>
+              <td>O modelo é de classificação de imagem inteira e não produz caixas delimitadoras. As colunas correspondentes precisam admitir <code>NULL</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="campo">heatmap_base64</span></td>
+              <td><span class="tipo">string | null</span></td>
+              <td><span class="opcional">condicional</span></td>
+              <td>PNG do Grad-CAM em base64, presente apenas com <code>?heatmap=true</code>. Para exibir: <code>data:image/png;base64,&lt;conteudo&gt;</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="sub" style="margin-top:34px">RespostaInfo</h3>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><span class="campo">modelo_versao</span></td><td><span class="tipo">string</span></td><td>Arquivo de pesos em execução.</td></tr>
+            <tr><td><span class="campo">dispositivo</span></td><td><span class="tipo">string</span></td><td><code>cpu</code> ou <code>cuda</code>.</td></tr>
+            <tr><td><span class="campo">imgsz</span></td><td><span class="tipo">integer</span></td><td>Resolução de entrada da rede.</td></tr>
+            <tr><td><span class="campo">limiar_confianca</span></td><td><span class="tipo">number</span></td><td>Confiança mínima para acionar <code>alerta</code>.</td></tr>
+            <tr><td><span class="campo">suporta_heatmap</span></td><td><span class="tipo">boolean</span></td><td>Grad-CAM disponível apenas com pesos <code>.pt</code>.</td></tr>
+            <tr><td><span class="campo">tamanho_maximo_mb</span></td><td><span class="tipo">number</span></td><td>Limite do corpo da requisição.</td></tr>
+            <tr><td><span class="campo">classes</span></td><td><span class="tipo">ClasseInfo[]</span></td><td>Classes reconhecidas, na ordem de índice.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="sub" style="margin-top:34px">ClasseInfo</h3>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><span class="campo">indice</span></td><td><span class="tipo">integer</span></td><td>Índice no vetor de saída do modelo.</td></tr>
+            <tr><td><span class="campo">canonico</span></td><td><span class="tipo">string</span></td><td>Valor gravado no banco de dados.</td></tr>
+            <tr><td><span class="campo">exibicao</span></td><td><span class="tipo">string</span></td><td>Texto para a interface do usuário.</td></tr>
+            <tr><td><span class="campo">patogeno</span></td><td><span class="tipo">boolean</span></td><td>Indica presença de patógeno.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="sub" style="margin-top:34px">RespostaSaude</h3>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><span class="campo">status</span></td><td><span class="tipo">string</span></td><td><code>ok</code> quando o modelo está carregado; <code>erro</code> caso contrário.</td></tr>
+            <tr><td><span class="campo">modelo_carregado</span></td><td><span class="tipo">boolean</span></td><td>Estado do carregamento.</td></tr>
+            <tr><td><span class="campo">modelo_versao</span></td><td><span class="tipo">string | null</span></td><td>Nulo enquanto o modelo não estiver carregado.</td></tr>
+            <tr><td><span class="campo">dispositivo</span></td><td><span class="tipo">string | null</span></td><td>Nulo enquanto o modelo não estiver carregado.</td></tr>
+            <tr><td><span class="campo">detalhe</span></td><td><span class="tipo">string | null</span></td><td>Mensagem de erro, quando houver.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="sub" style="margin-top:34px">RespostaErro</h3>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><span class="campo">detail</span></td><td><span class="tipo">string</span></td><td>Descrição do problema, em português. É o único campo — todas as respostas de erro têm este formato.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ALERTA -->
+    <section id="alerta">
+      <h2 class="secao">O campo <span class="mono" style="font-size:.86em">alerta</span></h2>
+      <p class="secao-nota">
+        <code>alerta</code> é verdadeiro somente quando há patógeno <strong>e</strong> a
+        confiança atinge o limiar — 0,85 por padrão, configurável. É o gatilho da notificação
+        push do RF07.
+      </p>
+      <div class="rolagem">
+        <table>
+          <thead>
+            <tr><th>Situação</th><th>patogeno_detectado</th><th>alerta</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>saudavel</code>, confiança 0,99</td>
+              <td><span class="mono">false</span></td>
+              <td><span class="mono">false</span></td>
+            </tr>
+            <tr>
+              <td><code>fungico</code>, confiança 0,95</td>
+              <td><span class="mono">true</span></td>
+              <td><span class="mono" style="color:var(--critico); font-weight:700">true</span></td>
+            </tr>
+            <tr>
+              <td><code>fungico</code>, confiança 0,60</td>
+              <td><span class="mono">true</span></td>
+              <td><span class="mono">false</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="aviso" style="margin-top:20px">
+        <p>
+          Use <code>alerta</code> para decidir o disparo da notificação; use
+          <code>patogeno_detectado</code> para registrar a ocorrência no histórico, ainda que
+          sem notificar.
+        </p>
+      </div>
+    </section>
+
+    <!-- STATUS -->
+    <section id="status">
+      <h2 class="secao">Códigos de status</h2>
+      <p class="secao-nota">
+        Todo erro devolve o mesmo corpo: um objeto com a chave <code>detail</code>.
+      </p>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Código</th><th>Significado</th><th>Ação do cliente</th></tr></thead>
+          <tbody>
+            <tr><td><span class="codigo-st st-2">200</span></td><td>Classificação concluída</td><td>Processar a resposta</td></tr>
+            <tr><td><span class="codigo-st st-4">400</span></td><td>Imagem corrompida, truncada, vazia ou em formato não suportado</td><td>Recapturar a imagem</td></tr>
+            <tr><td><span class="codigo-st st-4">413</span></td><td>Imagem acima do limite configurado</td><td>Reduzir a resolução no ESP32</td></tr>
+            <tr><td><span class="codigo-st st-4">422</span></td><td>Campo obrigatório ausente</td><td>Corrigir a requisição</td></tr>
+            <tr><td><span class="codigo-st st-5">500</span></td><td>Falha inesperada</td><td>Consultar o log do serviço</td></tr>
+            <tr><td><span class="codigo-st st-5">503</span></td><td>Modelo indisponível</td><td>Verificar <code>/health</code>; tentar novamente</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="aviso" style="margin-top:20px; --cor: var(--critico)">
+        <p>
+          <strong>O erro 400 é deliberado.</strong> Uma imagem ilegível nunca produz um
+          resultado. Classificar silenciosamente um JPEG truncado como folha saudável
+          suprimiria o alerta sem qualquer indicação de anomalia — a pior falha possível deste
+          sistema. Trate o 400 como “recapturar”, jamais como “sem doença”.
+        </p>
+      </div>
+    </section>
+
+    <!-- BANCO -->
+    <section id="banco">
+      <h2 class="secao">Mapeamento para a tabela <span class="mono" style="font-size:.8em">deteccoes</span></h2>
+      <p class="secao-nota">
+        Os campos da resposta correspondem um a um às colunas especificadas no projeto.
+      </p>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Campo da resposta</th><th>Coluna</th><th>Observação</th></tr></thead>
+          <tbody>
+            <tr><td><span class="campo">classe</span></td><td><span class="campo">classe</span></td><td>Valores idênticos ao <code>ENUM</code> do banco</td></tr>
+            <tr><td><span class="campo">confianca</span></td><td><span class="campo">confianca</span></td><td><code>NUMERIC(4,3)</code>, faixa [0, 1]</td></tr>
+            <tr><td><span class="campo">detectado_em</span></td><td><span class="campo">detectado_em</span></td><td>ISO 8601 em UTC</td></tr>
+            <tr><td><span class="campo">bbox_x, bbox_y, bbox_w, bbox_h</span></td><td><span class="campo">bbox_*</span></td><td><span class="nulo">precisa ser NULLABLE</span></td></tr>
+            <tr><td>—</td><td><span class="campo">estufa_id</span></td><td>Definido pelo back-end</td></tr>
+            <tr><td>—</td><td><span class="campo">imagem_url</span></td><td>Definido pelo back-end, após armazenar a imagem</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- INTEGRAÇÃO -->
+    <section id="integracao">
+      <h2 class="secao">Integração</h2>
+      <p class="secao-nota">
+        Quatro consumidores previstos. O dashboard e o back-end usam <code>/analyze</code>;
+        o ESP32-CAM usa <code>/analyze/raw</code>.
+      </p>
+
+      <div class="abas" role="tablist" aria-label="Exemplos de integração">
+        <button class="aba" role="tab" id="t-curl" aria-controls="p-curl" aria-selected="true">cURL</button>
+        <button class="aba" role="tab" id="t-py" aria-controls="p-py" aria-selected="false">Python · back-end</button>
+        <button class="aba" role="tab" id="t-js" aria-controls="p-js" aria-selected="false">JavaScript · dashboard</button>
+        <button class="aba" role="tab" id="t-esp" aria-controls="p-esp" aria-selected="false">C++ · ESP32-CAM</button>
+      </div>
+
+      <div class="painel" role="tabpanel" id="p-curl" aria-labelledby="t-curl">
+        <div class="caixa-cod">
+<pre class="sh"># formulário
+curl -X POST -F "imagem=@folha.jpg" http://localhost:8000/analyze
+
+# corpo bruto, com mapa de calor
+curl -X POST --data-binary "@folha.jpg" \
+     -H "Content-Type: image/jpeg" \
+     "http://localhost:8000/analyze/raw?heatmap=true"
+
+# disponibilidade
+curl http://localhost:8000/health</pre>
+        </div>
+      </div>
+
+      <div class="painel" role="tabpanel" id="p-py" aria-labelledby="t-py" hidden>
+        <div class="caixa-cod">
+<pre class="py">import requests
+
+with open("folha.jpg", "rb") as arquivo:
+    resposta = requests.post(
+        "http://localhost:8000/analyze",
+        files={"imagem": arquivo},
+        timeout=10,
+    )
+
+resposta.raise_for_status()
+deteccao = resposta.json()
+
+if deteccao["alerta"]:
+    # persistir em 'deteccoes' e acionar a notificação push (RF07)
+    ...</pre>
+        </div>
+      </div>
+
+      <div class="painel" role="tabpanel" id="p-js" aria-labelledby="t-js" hidden>
+        <div class="caixa-cod">
+<pre class="js">const dados = new FormData();
+dados.append("imagem", arquivo);
+
+const resposta = await fetch("http://localhost:8000/analyze", {
+  method: "POST",
+  body: dados,
+});
+
+if (!resposta.ok) {
+  const { detail } = await resposta.json();
+  throw new Error(detail);
+}
+
+const deteccao = await resposta.json();</pre>
+        </div>
+        <p style="margin-top:14px">Para exibir o mapa de calor, use <code>?heatmap=true</code> e monte a imagem assim:</p>
+        <div class="caixa-cod">
+<pre class="js">&lt;img src={`data:image/png;base64,${deteccao.heatmap_base64}`} /&gt;</pre>
+        </div>
+      </div>
+
+      <div class="painel" role="tabpanel" id="p-esp" aria-labelledby="t-esp" hidden>
+        <div class="caixa-cod">
+<pre class="cpp">#include &lt;HTTPClient.h&gt;
+#include "esp_camera.h"
+
+const char* SERVIDOR = "http://192.168.0.100:8000/analyze/raw";
+
+void enviarImagem() {
+  camera_fb_t* quadro = esp_camera_fb_get();
+  if (!quadro) { Serial.println("Falha ao capturar"); return; }
+
+  HTTPClient http;
+  http.begin(SERVIDOR);
+  http.addHeader("Content-Type", "image/jpeg");
+  http.setTimeout(10000);
+
+  int codigo = http.POST(quadro-&gt;buf, quadro-&gt;len);
+
+  if (codigo == 200) {
+    Serial.println(http.getString());   // JSON da deteccao
+  } else {
+    Serial.printf("Erro HTTP %d\n", codigo);
+  }
+
+  http.end();
+  esp_camera_fb_return(quadro);
+}</pre>
+        </div>
+        <p style="margin-top:14px">
+          Substitua <code>192.168.0.100</code> pelo IP da máquina que executa o serviço. O
+          servidor precisa ter sido iniciado com <code>--host 0.0.0.0</code> para aceitar
+          conexões externas.
+        </p>
+      </div>
+    </section>
+
+    <!-- CONFIG -->
+    <section id="config">
+      <h2 class="secao">Configuração</h2>
+      <p class="secao-nota">
+        Todas as opções têm padrão utilizável; o serviço sobe sem nenhuma variável definida.
+      </p>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Variável</th><th>Padrão</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><span class="campo">IA_ALFACE_MODELO</span></td><td><span class="tipo">modelos/yolo11n_cls_alface.pt</span></td><td>Pesos a carregar</td></tr>
+            <tr><td><span class="campo">IA_ALFACE_DISPOSITIVO</span></td><td><span class="tipo">autodetecção</span></td><td><code>cuda</code> ou <code>cpu</code></td></tr>
+            <tr><td><span class="campo">IA_ALFACE_LIMIAR</span></td><td><span class="tipo">0.85</span></td><td>Confiança mínima para <code>alerta</code></td></tr>
+            <tr><td><span class="campo">IA_ALFACE_MAX_MB</span></td><td><span class="tipo">10</span></td><td>Limite do corpo da requisição</td></tr>
+            <tr><td><span class="campo">IA_ALFACE_CORS_ORIGENS</span></td><td><span class="tipo">*</span></td><td>Origens autorizadas, separadas por vírgula</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="aviso" style="margin-top:20px; --cor: var(--bacteriano)">
+        <p>
+          <strong>Antes de implantar publicamente</strong>, restrinja
+          <code>IA_ALFACE_CORS_ORIGENS</code> às origens do dashboard. O padrão <code>*</code> é
+          adequado apenas em desenvolvimento.
+        </p>
+      </div>
+
+      <h3 class="sub" style="margin-top:30px">Escolha do formato do modelo</h3>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Formato</th><th>Mediana medida</th><th>Grad-CAM</th><th>Uso recomendado</th></tr></thead>
+          <tbody>
+            <tr><td><span class="campo">.pt</span></td><td class="num">20,10 ms</td><td><span class="mono" style="color:var(--saudavel)">sim</span></td><td>Desenvolvimento; quando o heatmap for necessário</td></tr>
+            <tr><td><span class="campo">.onnx</span></td><td class="num">12,73 ms</td><td><span class="mono" style="color:var(--tinta-3)">não</span></td><td>Produção, se o heatmap não for usado</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DESEMPENHO -->
+    <section id="desempenho">
+      <h2 class="secao">Desempenho medido</h2>
+      <p class="secao-nota">
+        Números medidos, não estimados. A inferência foi medida por
+        <code>05_benchmark_latencia.py</code> em 02/08/2026 — 100 imagens do split
+        <code>test</code>, 10 inferências de aquecimento descartadas, AMD Ryzen (AMD64 Family 23
+        Model 24) em CPU, sem CUDA.
+      </p>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Configuração</th><th>Mediana</th><th>Média</th><th>p95</th><th>p99</th></tr></thead>
+          <tbody>
+            <tr><td>PyTorch / CPU</td><td class="num">20,10 ms</td><td class="num">23,23 ms</td><td class="num">38,27 ms</td><td class="num">81,34 ms</td></tr>
+            <tr><td>ONNX / CPU</td><td class="num">12,73 ms</td><td class="num">16,15 ms</td><td class="num">32,69 ms</td><td class="num">78,98 ms</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:18px">
+        Medido pelo caminho HTTP completo, em <code>127.0.0.1</code> e com pesos <code>.pt</code>,
+        a resposta ponta a ponta ficou em <strong>53,3 ms</strong> — dos quais 40,6 ms de
+        inferência e 12,7 ms de sobrecarga do HTTP. Ambos atendem ao RNF01 (&lt; 100 ms). O
+        número ponta a ponta é o mais representativo da experiência real do ESP32, ao qual se
+        soma a latência da rede Wi-Fi local.
+      </p>
+      <div class="aviso" style="margin-top:20px">
+        <p>
+          Duas decisões sustentam esse desempenho: o modelo é carregado <strong>uma única
+          vez</strong> na inicialização, e a inferência roda em <em>pool</em> de threads, de modo
+          que o laço de eventos permaneça livre para aceitar conexões e responder ao
+          <code>/health</code> enquanto uma imagem é processada.
+        </p>
+        <p>
+          Estes números foram medidos no servidor de inferência, <strong>não</strong> em
+          dispositivo embarcado. Na arquitetura proposta, o ESP32-CAM apenas captura e transmite
+          a imagem; a inferência ocorre no servidor.
+        </p>
+      </div>
+    </section>
+
+    <!-- CONTRATO -->
+    <section id="contrato">
+      <h2 class="secao">Gerar clientes a partir do contrato</h2>
+      <p class="secao-nota">
+        O contrato OpenAPI 3.1.0 é a fonte da verdade — esta página foi escrita a partir dele.
+        Está versionado em <code>docs/openapi.json</code> e é servido em
+        <code>/openapi.json</code> com o serviço no ar.
+      </p>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Ferramenta</th><th>O que fazer</th></tr></thead>
+          <tbody>
+            <tr><td>Swagger Editor</td><td>Importar <code>docs/openapi.json</code> em <span class="mono">editor.swagger.io</span></td></tr>
+            <tr><td>Postman / Insomnia</td><td>Import → OpenAPI → gera a coleção com as quatro rotas</td></tr>
+            <tr><td>TypeScript</td><td><code>npx openapi-typescript docs/openapi.json -o src/api.d.ts</code></td></tr>
+            <tr><td>Swagger UI local</td><td>Subir o serviço e abrir <code>/docs</code> — testa as rotas de verdade</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="bloco" style="margin-top:22px">
+        <h3 class="sub">Regenerar o contrato após alterar a API</h3>
+        <div class="caixa-cod">
+<pre class="py">python - &lt;&lt;'PY'
+import json
+from api.main import app
+open("docs/openapi.json", "w", encoding="utf-8").write(
+    json.dumps(app.openapi(), indent=2, ensure_ascii=False) + "\n"
+)
+PY</pre>
+        </div>
+      </div>
+    </section>
+
+    <footer class="rodape">
+      <p>
+        Trabalho de Conclusão de Curso · UNIP · 2026 — módulo de IA do sistema de monitoramento
+        de estufa de alface. Atende RF02, RNF01, RNF02 e RNF07; casos de teste CT01–CT04.
+      </p>
+      <p>
+        Documentação de referência gerada a partir de <code>api/main.py</code> e
+        <code>api/esquemas.py</code>; métricas lidas de
+        <code>desenvolvimento/reports/</code>. Divergências em relação ao projeto original
+        (D1–D7) estão em <code>docs/DIVERGENCIAS.md</code>.
+      </p>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+
+    /* --- realce de JSON ------------------------------------------------ */
+    function escapar(texto) {
+      return texto.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    document.querySelectorAll("pre.json").forEach(function (bloco) {
+      var bruto = escapar(bloco.textContent);
+      bloco.innerHTML = bruto
+        .replace(/"([^"\\]*(?:\\.[^"\\]*)*)"(\s*:)/g, '<span class="j-chave">"$1"</span>$2')
+        .replace(/:(\s*)"([^"\\]*(?:\\.[^"\\]*)*)"/g, ':$1<span class="j-txt">"$2"</span>')
+        .replace(/:(\s*)(-?\d+(?:\.\d+)?)/g, ':$1<span class="j-num">$2</span>')
+        .replace(/\b(true|false|null)\b/g, '<span class="j-lit">$1</span>');
+    });
+
+    /* --- realce de comentários em shell/python ------------------------- */
+    document.querySelectorAll("pre.sh, pre.py").forEach(function (bloco) {
+      var bruto = escapar(bloco.textContent);
+      bloco.innerHTML = bruto.replace(/^(\s*)(#.*)$/gm, '$1<span class="j-com">$2</span>');
+    });
+    document.querySelectorAll("pre.js, pre.cpp").forEach(function (bloco) {
+      var bruto = bloco.innerHTML;
+      bloco.innerHTML = bruto.replace(/(\/\/[^\n<]*)/g, '<span class="j-com">$1</span>');
+    });
+
+    /* --- botão copiar --------------------------------------------------- */
+    document.querySelectorAll(".caixa-cod").forEach(function (caixa) {
+      var pre = caixa.querySelector("pre");
+      if (!pre) { return; }
+
+      var botao = document.createElement("button");
+      botao.className = "copiar";
+      botao.type = "button";
+      botao.textContent = "Copiar";
+      botao.setAttribute("aria-label", "Copiar trecho de código");
+
+      botao.addEventListener("click", function () {
+        navigator.clipboard.writeText(pre.textContent).then(function () {
+          botao.textContent = "Copiado";
+          botao.dataset.feito = "1";
+          setTimeout(function () {
+            botao.textContent = "Copiar";
+            delete botao.dataset.feito;
+          }, 1600);
+        }).catch(function () {
+          botao.textContent = "Falhou";
+          setTimeout(function () { botao.textContent = "Copiar"; }, 1600);
+        });
+      });
+
+      caixa.appendChild(botao);
+    });
+
+    /* --- abas ----------------------------------------------------------- */
+    var abas = Array.prototype.slice.call(document.querySelectorAll(".aba"));
+
+    function selecionar(alvo) {
+      abas.forEach(function (aba) {
+        var ativa = aba === alvo;
+        aba.setAttribute("aria-selected", ativa ? "true" : "false");
+        var painel = document.getElementById(aba.getAttribute("aria-controls"));
+        if (painel) { painel.hidden = !ativa; }
+      });
+    }
+
+    abas.forEach(function (aba, indice) {
+      aba.addEventListener("click", function () { selecionar(aba); });
+      aba.addEventListener("keydown", function (evento) {
+        var passo = evento.key === "ArrowRight" ? 1 : evento.key === "ArrowLeft" ? -1 : 0;
+        if (!passo) { return; }
+        evento.preventDefault();
+        var proxima = abas[(indice + passo + abas.length) % abas.length];
+        proxima.focus();
+        selecionar(proxima);
+      });
+    });
+
+    /* --- abrir a ficha apontada pelo link do índice --------------------- */
+    function abrirAlvo() {
+      var id = window.location.hash.slice(1);
+      if (!id) { return; }
+      var alvo = document.getElementById(id);
+      if (alvo && alvo.tagName === "DETAILS") { alvo.open = true; }
+    }
+
+    document.querySelectorAll('.trilho a[href^="#"]').forEach(function (link) {
+      link.addEventListener("click", function () {
+        var alvo = document.getElementById(link.getAttribute("href").slice(1));
+        if (alvo && alvo.tagName === "DETAILS") { alvo.open = true; }
+      });
+    });
+
+    window.addEventListener("hashchange", abrirAlvo);
+    abrirAlvo();
+  })();
+</script>

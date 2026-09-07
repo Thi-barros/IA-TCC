@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API de Detecção de Doenças Foliares em Alface — Swagger</title>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css">
+<style>
+  body { margin: 0; background: #fafafa; }
+  #aviso {
+    display: none;
+    margin: 3rem auto;
+    max-width: 44rem;
+    padding: 1.5rem 1.75rem;
+    border: 1px solid #d9c47a;
+    border-left: 4px solid #b8860b;
+    border-radius: 4px;
+    background: #fdf8e6;
+    color: #3b3524;
+    font: 15px/1.6 "Segoe UI", system-ui, sans-serif;
+  }
+  #aviso code { background: #efe7cb; padding: 0.1em 0.35em; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="aviso">
+  <strong>Não foi possível carregar o Swagger UI.</strong>
+  <p>Esta página baixa a interface de um CDN e precisa de conexão com a internet
+  na primeira vez. Sem conexão, use a documentação servida pela própria API:</p>
+  <p><code>python -m uvicorn api.main:app</code> e abra
+  <code>http://localhost:8000/docs</code>.</p>
+  <p>O contrato em si continua disponível em <code>docs/openapi.json</code>.</p>
+</div>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js" crossorigin></script>
+<script>
+// O contrato é embutido em vez de buscado com fetch: aberto por file://, o
+// navegador bloquearia a leitura de openapi.json por política de origem.
+const ESPECIFICACAO = {
+  "openapi": "3.1.0",
+  "info": {
+    "title": "API de Detecção de Doenças Foliares em Alface",
+    "summary": "Classifica imagens de folha de alface em saudável, bacteriana ou fúngica.",
+    "description": "Serviço de classificação de doenças foliares em alface (*Lactuca sativa*) baseado em Ultralytics YOLO11-cls.\n\nClassifica uma imagem de folha em **saudável**, **bacteriana** (*Xanthomonas campestris*) ou **fúngica** (*Bremia lactucae*).\n\nEscopo restrito à inferência: não persiste dados, não fala MQTT e não envia notificações.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Operação"
+        ],
+        "summary": "Verificar disponibilidade do serviço",
+        "description": "Informa se o modelo está carregado e pronto para inferência.\n\nAdequado para *health check* de orquestradores e balanceadores.",
+        "operationId": "saude_health_get",
+        "responses": {
+          "200": {
+            "description": "Estado do serviço",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaSaude"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/info": {
+      "get": {
+        "tags": [
+          "Operação"
+        ],
+        "summary": "Consultar metadados do modelo",
+        "description": "Devolve as classes reconhecidas e os parâmetros em vigor.\n\nÚtil para o dashboard montar legendas e rótulos sem duplicar as definições\nde classe no front-end.",
+        "operationId": "info_info_get",
+        "responses": {
+          "200": {
+            "description": "Metadados do modelo e classes reconhecidas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaInfo"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Modelo indisponível",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaErro"
+                },
+                "example": {
+                  "detail": "Modelo indisponível. Arquivo de pesos não encontrado."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyze": {
+      "post": {
+        "tags": [
+          "Inferência"
+        ],
+        "summary": "Classificar imagem enviada como formulário",
+        "description": "Classifica uma imagem enviada como `multipart/form-data`.\n\nEndpoint indicado para o dashboard web, para testes manuais e para clientes\nque já trabalham com formulários. Dispositivos embarcados devem preferir\n`/analyze/raw`, que dispensa a montagem do envelope multipart.",
+        "operationId": "analisar_analyze_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "heatmap",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Incluir o mapa de calor Grad-CAM na resposta.",
+              "default": false,
+              "title": "Heatmap"
+            },
+            "description": "Incluir o mapa de calor Grad-CAM na resposta."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analisar_analyze_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Classificação da folha",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeteccao"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Imagem ausente, corrompida ou em formato não suportado",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Não foi possível decodificar a imagem recebida em bytes."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaErro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chave de API ausente ou inválida",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Chave de API ausente ou inválida no cabeçalho X-API-Key."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaErro"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Imagem acima do limite configurado",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Imagem de 14.2 MB excede o limite de 10 MB."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaErro"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Modelo indisponível",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Modelo indisponível. Arquivo de pesos não encontrado."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaErro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyze/raw": {
+      "post": {
+        "tags": [
+          "Inferência"
+        ],
+        "summary": "Classificar imagem enviada como corpo bruto",
+        "description": "Classifica os bytes de imagem enviados diretamente no corpo.\n\nEndpoint destinado ao ESP32-CAM: o microcontrolador envia o JPEG capturado\ncom `Content-Type: image/jpeg`, sem o custo de montar um envelope\n`multipart/form-data`, que consome memória e tempo em hardware limitado.",
+        "operationId": "analisar_bruto_analyze_raw_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "heatmap",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Incluir o mapa de calor Grad-CAM na resposta.",
+              "default": false,
+              "title": "Heatmap"
+            },
+            "description": "Incluir o mapa de calor Grad-CAM na resposta."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classificação da folha",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaDeteccao"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Imagem ausente, corrompida ou em formato não suportado",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Não foi possível decodificar a imagem recebida em bytes."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaErro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chave de API ausente ou inválida",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Chave de API ausente ou inválida no cabeçalho X-API-Key."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaErro"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Imagem acima do limite configurado",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Imagem de 14.2 MB excede o limite de 10 MB."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaErro"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Modelo indisponível",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Modelo indisponível. Arquivo de pesos não encontrado."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaErro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Bytes da imagem, sem envelope multipart.",
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_analisar_analyze_post": {
+        "properties": {
+          "imagem": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Imagem",
+            "description": "Arquivo de imagem da folha (JPEG ou PNG)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "imagem"
+        ],
+        "title": "Body_analisar_analyze_post"
+      },
+      "ClasseInfo": {
+        "properties": {
+          "indice": {
+            "type": "integer",
+            "title": "Indice",
+            "description": "Índice no vetor de saída do modelo."
+          },
+          "canonico": {
+            "type": "string",
+            "title": "Canonico",
+            "description": "Valor gravado no banco de dados."
+          },
+          "exibicao": {
+            "type": "string",
+            "title": "Exibicao",
+            "description": "Texto para a interface do usuário."
+          },
+          "patogeno": {
+            "type": "boolean",
+            "title": "Patogeno",
+            "description": "Indica presença de patógeno."
+          }
+        },
+        "type": "object",
+        "required": [
+          "indice",
+          "canonico",
+          "exibicao",
+          "patogeno"
+        ],
+        "title": "ClasseInfo",
+        "description": "Descrição de uma classe reconhecida pelo modelo."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "RespostaDeteccao": {
+        "properties": {
+          "classe": {
+            "type": "string",
+            "title": "Classe",
+            "description": "Rótulo canônico. Corresponde ao ENUM da coluna 'classe'.",
+            "examples": [
+              "fungico"
+            ]
+          },
+          "classe_exibicao": {
+            "type": "string",
+            "title": "Classe Exibicao",
+            "description": "Rótulo legível, para exibição na interface.",
+            "examples": [
+              "Fúngico (Bremia lactucae)"
+            ]
+          },
+          "confianca": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confianca",
+            "description": "Confiança da classe predita. Coluna 'confianca'.",
+            "examples": [
+              0.956
+            ]
+          },
+          "probabilidades": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Probabilidades",
+            "description": "Probabilidade atribuída a cada uma das três classes.",
+            "examples": [
+              {
+                "bacteriano": 0.021,
+                "fungico": 0.956,
+                "saudavel": 0.023
+              }
+            ]
+          },
+          "patogeno_detectado": {
+            "type": "boolean",
+            "title": "Patogeno Detectado",
+            "description": "Verdadeiro quando a classe predita não é 'saudavel'.",
+            "examples": [
+              true
+            ]
+          },
+          "alerta": {
+            "type": "boolean",
+            "title": "Alerta",
+            "description": "Verdadeiro quando há patógeno E a confiança atinge o limiar. É o gatilho da notificação push (RF07).",
+            "examples": [
+              true
+            ]
+          },
+          "tempo_inferencia_ms": {
+            "type": "number",
+            "title": "Tempo Inferencia Ms",
+            "description": "Tempo da inferência em milissegundos. Verifica o RNF01.",
+            "examples": [
+              12.73
+            ]
+          },
+          "detectado_em": {
+            "type": "string",
+            "title": "Detectado Em",
+            "description": "Instante da detecção em UTC (ISO 8601). Coluna 'detectado_em'.",
+            "examples": [
+              "2026-08-02T18:14:05.123456+00:00"
+            ]
+          },
+          "modelo_versao": {
+            "type": "string",
+            "title": "Modelo Versao",
+            "description": "Arquivo de pesos utilizado, para rastreabilidade.",
+            "examples": [
+              "yolo11n_cls_alface.pt"
+            ]
+          },
+          "bbox_x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox X",
+            "description": "Sempre nulo: o modelo é de classificação de imagem inteira e não produz caixas delimitadoras. A coluna correspondente no banco deve admitir NULL."
+          },
+          "bbox_y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox Y",
+            "description": "Sempre nulo."
+          },
+          "bbox_w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox W",
+            "description": "Sempre nulo."
+          },
+          "bbox_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox H",
+            "description": "Sempre nulo."
+          },
+          "heatmap_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heatmap Base64",
+            "description": "Mapa de calor Grad-CAM em PNG codificado em base64, presente apenas quando solicitado via 'heatmap=true'. Para exibir no navegador: data:image/png;base64,<conteudo>."
+          }
+        },
+        "type": "object",
+        "required": [
+          "classe",
+          "classe_exibicao",
+          "confianca",
+          "probabilidades",
+          "patogeno_detectado",
+          "alerta",
+          "tempo_inferencia_ms",
+          "detectado_em",
+          "modelo_versao"
+        ],
+        "title": "RespostaDeteccao",
+        "description": "Resultado da classificação de uma imagem de folha de alface."
+      },
+      "RespostaErro": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Descrição do problema, em português.",
+            "examples": [
+              "Não foi possível decodificar a imagem recebida em bytes."
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "RespostaErro",
+        "description": "Corpo padronizado das respostas de erro."
+      },
+      "RespostaInfo": {
+        "properties": {
+          "modelo_versao": {
+            "type": "string",
+            "title": "Modelo Versao"
+          },
+          "dispositivo": {
+            "type": "string",
+            "title": "Dispositivo",
+            "examples": [
+              "cpu"
+            ]
+          },
+          "imgsz": {
+            "type": "integer",
+            "title": "Imgsz",
+            "description": "Resolução de entrada da rede.",
+            "examples": [
+              224
+            ]
+          },
+          "limiar_confianca": {
+            "type": "number",
+            "title": "Limiar Confianca",
+            "examples": [
+              0.85
+            ]
+          },
+          "suporta_heatmap": {
+            "type": "boolean",
+            "title": "Suporta Heatmap",
+            "description": "Grad-CAM disponível apenas com pesos .pt."
+          },
+          "tamanho_maximo_mb": {
+            "type": "number",
+            "title": "Tamanho Maximo Mb"
+          },
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/ClasseInfo"
+            },
+            "type": "array",
+            "title": "Classes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "modelo_versao",
+          "dispositivo",
+          "imgsz",
+          "limiar_confianca",
+          "suporta_heatmap",
+          "tamanho_maximo_mb",
+          "classes"
+        ],
+        "title": "RespostaInfo",
+        "description": "Metadados do modelo em execução."
+      },
+      "RespostaSaude": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'ok' quando o modelo está carregado; 'erro' caso contrário.",
+            "examples": [
+              "ok"
+            ]
+          },
+          "modelo_carregado": {
+            "type": "boolean",
+            "title": "Modelo Carregado"
+          },
+          "modelo_versao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelo Versao"
+          },
+          "dispositivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispositivo"
+          },
+          "detalhe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detalhe",
+            "description": "Mensagem de erro, quando houver."
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "modelo_carregado"
+        ],
+        "title": "RespostaSaude",
+        "description": "Estado do serviço, para verificação de disponibilidade."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Inferência",
+      "description": "Classificação de uma imagem de folha. As duas rotas devolvem o mesmo corpo e diferem apenas na forma de envio: `/analyze` recebe um `multipart/form-data`, usado pelo dashboard e pelos testes manuais; `/analyze/raw` recebe os bytes crus, forma indicada para o ESP32-CAM.\n\nAmbas aceitam `?heatmap=true`, que acrescenta o mapa de calor Grad-CAM à resposta — disponível somente quando o serviço executa pesos `.pt`."
+    },
+    {
+      "name": "Operação",
+      "description": "Disponibilidade do serviço e metadados do modelo em execução. Consuma `/info` para obter as classes reconhecidas em vez de duplicá-las no cliente."
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Serviço em execução local"
+    }
+  ]
+};
+
+window.addEventListener("load", function () {
+  if (typeof SwaggerUIBundle === "undefined") {
+    document.getElementById("aviso").style.display = "block";
+    return;
+  }
+  SwaggerUIBundle({
+    spec: ESPECIFICACAO,
+    dom_id: "#swagger-ui",
+    presets: [SwaggerUIBundle.presets.apis],
+    layout: "BaseLayout",
+    docExpansion: "list",
+    defaultModelsExpandDepth: 2,
+    displayRequestDuration: true,
+    tryItOutEnabled: true
+  });
+});
+</script>
+</body>
+</html>

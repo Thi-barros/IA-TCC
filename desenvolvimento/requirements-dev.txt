@@ -16,3 +16,11 @@ onnx>=1.17
 
 # Testes automatizados
 pytest>=8.0
+
+# Armazenamento de imagens no Azure Blob Storage (verificar_blob.py).
+#
+# Deliberadamente FORA de requirements.txt: a API de inferência não fala com o
+# Azure — ela recebe bytes e não conhece a origem deles. Quem integra com o
+# Blob é o back-end da aplicação, fase seguinte do TCC.
+azure-storage-blob>=12.23
+azure-identity>=1.19

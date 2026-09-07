@@ -118,6 +118,8 @@ perdido. Use `--sem-reducao` para uma cópia fiel.
 | `desenvolvimento/dataset_clean/` | Dataset re-dividido (gerado; não versionado) |
 | `modelos/` | Pesos treinados e modelos exportados |
 | `desenvolvimento/reports/` | Saídas destinadas ao texto do TCC |
+| `Dockerfile` | Imagem da API para implantação — ver [`IMPLANTACAO.md`](IMPLANTACAO.md) |
+| `desenvolvimento/scripts/verificar_blob.py` | Verificação do acesso ao Azure Blob Storage |
 
 ## Uso da biblioteca
 
@@ -146,6 +148,14 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
 Documentação interativa em `/docs`; contrato completo, exemplos de consumo em
 Python, JavaScript e Arduino, e variáveis de configuração em
 [`../api/README.md`](../api/README.md).
+
+Sem subir o serviço, consulte a cópia estática do Swagger em
+[`swagger.html`](swagger.html) ou o contrato em [`openapi.json`](openapi.json).
+Ambos são regerados por `python desenvolvimento/scripts/gerar_openapi.py`.
+
+Para executar o serviço em container, localmente ou em Azure Container Apps, ver
+[`IMPLANTACAO.md`](IMPLANTACAO.md). O `Dockerfile` empacota apenas `api/`,
+`src/ia_alface/` e os pesos — `desenvolvimento/` fica de fora.
 
 ## Integração manual com FastAPI
 

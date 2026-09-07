@@ -23,6 +23,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import secrets
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -32,10 +33,20 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    Security,
+    UploadFile,
+)
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.security import APIKeyHeader
 
 from ia_alface.classes import CLASSES
 from ia_alface.inferencia import DetectorDoencasAlface, ResultadoDeteccao
@@ -104,8 +115,80 @@ async def ciclo_de_vida(_app: FastAPI):
     logger.info("Serviço encerrado.")
 
 
+# --------------------------------------------------------------------------- #
+# Metadados do contrato OpenAPI
+# --------------------------------------------------------------------------- #
+
+#: Descrição dos grupos de rotas, exibida no Swagger UI e no contrato exportado.
+TAGS_OPENAPI: list[dict[str, str]] = [
+    {
+        "name": "Inferência",
+        "description": (
+            "Classificação de uma imagem de folha. As duas rotas devolvem o "
+            "mesmo corpo e diferem apenas na forma de envio: `/analyze` recebe "
+            "um `multipart/form-data`, usado pelo dashboard e pelos testes "
+            "manuais; `/analyze/raw` recebe os bytes crus, forma indicada para "
+            "o ESP32-CAM.\n\nAmbas aceitam `?heatmap=true`, que acrescenta o "
+            "mapa de calor Grad-CAM à resposta — disponível somente quando o "
+            "serviço executa pesos `.pt`."
+        ),
+    },
+    {
+        "name": "Operação",
+        "description": (
+            "Disponibilidade do serviço e metadados do modelo em execução. "
+            "Consuma `/info` para obter as classes reconhecidas em vez de "
+            "duplicá-las no cliente."
+        ),
+    },
+]
+
+
+def _erro(descricao: str, exemplo: str) -> dict[str, Any]:
+    """Declara uma resposta de erro para o contrato OpenAPI.
+
+    Args:
+        descricao: Texto exibido ao lado do código de status.
+        exemplo: Valor do campo ``detail`` mostrado como exemplo.
+
+    Returns:
+        Dicionário no formato aceito pelo parâmetro ``responses`` do FastAPI.
+    """
+    return {
+        "model": RespostaErro,
+        "description": descricao,
+        "content": {"application/json": {"example": {"detail": exemplo}}},
+    }
+
+
+#: Erros das rotas de inferência. Declarados uma única vez para que as duas
+#: descrevam exatamente o mesmo contrato de falha.
+RESPOSTAS_DE_ERRO: dict[int | str, dict[str, Any]] = {
+    400: _erro(
+        "Imagem ausente, corrompida ou em formato não suportado",
+        "Não foi possível decodificar a imagem recebida em bytes.",
+    ),
+    401: _erro(
+        "Chave de API ausente ou inválida",
+        "Chave de API ausente ou inválida no cabeçalho X-API-Key.",
+    ),
+    413: _erro(
+        "Imagem acima do limite configurado",
+        "Imagem de 14.2 MB excede o limite de 10 MB.",
+    ),
+    503: _erro(
+        "Modelo indisponível",
+        "Modelo indisponível. Arquivo de pesos não encontrado.",
+    ),
+}
+
+
 app = FastAPI(
     title=CONFIGURACAO.titulo,
+    summary=(
+        "Classifica imagens de folha de alface em saudável, bacteriana ou "
+        "fúngica."
+    ),
     description=(
         "Serviço de classificação de doenças foliares em alface "
         "(*Lactuca sativa*) baseado em Ultralytics YOLO11-cls.\n\n"
@@ -115,6 +198,16 @@ app = FastAPI(
         "envia notificações."
     ),
     version="1.0.0",
+    openapi_tags=TAGS_OPENAPI,
+    # `displayRequestDuration` mostra o tempo de cada chamada no próprio Swagger
+    # UI, o que permite conferir o RNF01 sem ferramenta externa. Nenhum `servers`
+    # é declarado: sem ele o Swagger UI usa a origem em que está aberto, e a
+    # documentação continua funcionando em qualquer host ou porta.
+    swagger_ui_parameters={
+        "docExpansion": "list",
+        "displayRequestDuration": True,
+        "defaultModelsExpandDepth": 2,
+    },
     lifespan=ciclo_de_vida,
 )
 
@@ -146,6 +239,40 @@ async def registrar_requisicao(request: Request, call_next):
 # --------------------------------------------------------------------------- #
 # Auxiliares
 # --------------------------------------------------------------------------- #
+
+
+#: Cabeçalho que transporta a chave de API. ``auto_error=False`` faz a ausência
+#: chegar à verificação como ``None``, permitindo devolver 401 com mensagem em
+#: português em vez do 403 genérico do FastAPI.
+_CHAVE_NO_CABECALHO = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def verificar_chave(chave: str | None = Security(_CHAVE_NO_CABECALHO)) -> None:
+    """Exige a chave de API nas rotas de inferência, quando configurada.
+
+    Sem ``IA_ALFACE_CHAVE_API`` definida a verificação é inerte, e o serviço
+    responde como sempre respondeu. A proteção destina-se à implantação, onde o
+    ingress é público: sem ela, qualquer origem consome CPU e, sob escala a
+    zero, provoca inicializações que consomem a cota gratuita.
+
+    A comparação usa ``secrets.compare_digest``, de tempo constante. Comparar com
+    ``==`` permitiria inferir a chave medindo o tempo das respostas.
+
+    Args:
+        chave: Conteúdo do cabeçalho ``X-API-Key``, ausente como ``None``.
+
+    Raises:
+        HTTPException: 401 quando a chave é exigida e não confere.
+    """
+    if not CONFIGURACAO.exige_autenticacao:
+        return
+    if chave is None or not secrets.compare_digest(
+        chave.encode("utf-8"), CONFIGURACAO.chave_api.encode("utf-8")
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Chave de API ausente ou inválida no cabeçalho X-API-Key.",
+        )
 
 
 def _obter_detector() -> DetectorDoencasAlface:
@@ -313,6 +440,7 @@ async def pagina_de_teste():
     response_model=RespostaSaude,
     summary="Verificar disponibilidade do serviço",
     tags=["Operação"],
+    response_description="Estado do serviço",
 )
 async def saude() -> RespostaSaude:
     """Informa se o modelo está carregado e pronto para inferência.
@@ -339,7 +467,8 @@ async def saude() -> RespostaSaude:
     response_model=RespostaInfo,
     summary="Consultar metadados do modelo",
     tags=["Operação"],
-    responses={503: {"model": RespostaErro}},
+    response_description="Metadados do modelo e classes reconhecidas",
+    responses={503: RESPOSTAS_DE_ERRO[503]},
 )
 async def info() -> RespostaInfo:
     """Devolve as classes reconhecidas e os parâmetros em vigor.
@@ -372,11 +501,9 @@ async def info() -> RespostaInfo:
     response_model=RespostaDeteccao,
     summary="Classificar imagem enviada como formulário",
     tags=["Inferência"],
-    responses={
-        400: {"model": RespostaErro, "description": "Imagem inválida ou corrompida"},
-        413: {"model": RespostaErro, "description": "Imagem acima do limite"},
-        503: {"model": RespostaErro, "description": "Modelo indisponível"},
-    },
+    response_description="Classificação da folha",
+    responses=RESPOSTAS_DE_ERRO,
+    dependencies=[Depends(verificar_chave)],
 )
 async def analisar(
     imagem: UploadFile = File(
@@ -400,10 +527,21 @@ async def analisar(
     response_model=RespostaDeteccao,
     summary="Classificar imagem enviada como corpo bruto",
     tags=["Inferência"],
-    responses={
-        400: {"model": RespostaErro, "description": "Imagem inválida ou corrompida"},
-        413: {"model": RespostaErro, "description": "Imagem acima do limite"},
-        503: {"model": RespostaErro, "description": "Modelo indisponível"},
+    response_description="Classificação da folha",
+    responses=RESPOSTAS_DE_ERRO,
+    dependencies=[Depends(verificar_chave)],
+    # O corpo é lido de `request.body()`, que o FastAPI não consegue inspecionar.
+    # Sem esta declaração o contrato OpenAPI descreveria a rota do ESP32 como se
+    # não recebesse corpo algum, e o /docs não ofereceria campo para enviar.
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "description": "Bytes da imagem, sem envelope multipart.",
+            "content": {
+                "image/jpeg": {"schema": {"type": "string", "format": "binary"}},
+                "image/png": {"schema": {"type": "string", "format": "binary"}},
+            },
+        }
     },
 )
 async def analisar_bruto(

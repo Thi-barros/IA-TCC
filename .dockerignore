@@ -1,0 +1,51 @@
+# O que NÃO é enviado ao Docker como contexto de build.
+#
+# Sem este arquivo o Docker empacota a pasta inteira e a envia ao daemon antes
+# de executar a primeira instrução — incluindo o dataset de ~966 MB, as
+# execuções de treino e todo o histórico do Git. A build ficaria lenta mesmo
+# com os `COPY` seletivos do Dockerfile, que só agem depois disso.
+
+# ---------------------------------------------------------------------------
+# Ciclo de pesquisa — nada aqui roda em produção
+# ---------------------------------------------------------------------------
+desenvolvimento/
+
+# ---------------------------------------------------------------------------
+# Documentação e metadados do repositório
+# ---------------------------------------------------------------------------
+docs/
+**/*.md
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+.claude/
+spec.md
+
+# ---------------------------------------------------------------------------
+# Pesos não usados pela API. O .pt e o .onnx entram por COPY explícito.
+# ---------------------------------------------------------------------------
+modelos/*.torchscript
+
+# ---------------------------------------------------------------------------
+# Segredos — jamais devem entrar numa imagem, que é publicada num registro
+# ---------------------------------------------------------------------------
+.env
+.env.*
+
+# ---------------------------------------------------------------------------
+# Artefatos locais de Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# ---------------------------------------------------------------------------
+# Saídas de execução local
+# ---------------------------------------------------------------------------
+mapas_de_calor/
+runs/
+*.zip

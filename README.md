@@ -15,7 +15,7 @@ API REST para consumo pelo restante do sistema.
 | F1-score macro | 0,9415 |
 | Latência mediana (ONNX/CPU) | 12,73 ms |
 | Latência ponta a ponta via HTTP | 53,3 ms |
-| Testes automatizados | 93 |
+| Testes automatizados | 101 |
 
 Detalhamento completo em
 [`docs/DOCUMENTACAO_TECNICA_ABNT.md`](docs/DOCUMENTACAO_TECNICA_ABNT.md).
@@ -34,6 +34,9 @@ TCC/
 ├── src/ia_alface/       biblioteca de IA                  PRODUÇÃO
 ├── modelos/             pesos treinados (.pt, .onnx)      PRODUÇÃO
 ├── docs/                documentação
+├── Dockerfile           imagem de container da API        PRODUÇÃO
+├── .dockerignore        o que fica fora da imagem
+├── .env.exemplo         modelo de configuração local
 ├── requirements.txt     dependências de produção
 ├── spec.md              especificação do módulo
 └── desenvolvimento/     tudo que NÃO vai para produção
@@ -45,8 +48,9 @@ TCC/
 | `src/ia_alface/` | Biblioteca: classes, inferência, Grad-CAM | sim |
 | `modelos/` | Pesos treinados (não versionados) | sim |
 | `docs/` | Documentação técnica e do projeto | sim |
+| `Dockerfile` | Receita da imagem publicada na nuvem | sim |
 | `desenvolvimento/scripts/` | Pipeline de treino e avaliação | não |
-| `desenvolvimento/tests/` | 93 testes automatizados | não |
+| `desenvolvimento/tests/` | 101 testes automatizados | não |
 | `desenvolvimento/notebooks/` | Treinamento em GPU no Colab | não |
 | `desenvolvimento/reports/` | Métricas e figuras para o TCC | não |
 | `desenvolvimento/dataset*/` | Conjuntos de imagens | não |
@@ -80,10 +84,60 @@ sobe, mas responde `503` nas rotas de inferência e informa a causa em `/health`
 | `GET /info` | Metadados do modelo e classes |
 | `POST /analyze` | Classificar imagem (`multipart/form-data`) |
 | `POST /analyze/raw` | Classificar imagem (corpo bruto — ESP32-CAM) |
-| `GET /docs` | Documentação interativa |
+| `GET /docs` | Documentação interativa (Swagger UI) |
 
 Contrato completo, exemplos em Python, JavaScript e Arduino, e variáveis de
 configuração em [`api/README.md`](api/README.md).
+
+---
+
+## Implantação em nuvem
+
+A API é empacotada em container e implantada em **Azure Container Apps** com
+escala a zero — o container dorme quando ocioso, o que mantém o custo dentro da
+cota gratuita.
+
+```bash
+docker build -t ia-alface:local .
+```
+
+```bash
+docker run --rm -p 8000:8000 ia-alface:local
+```
+
+Publicação da imagem, criação do serviço no Azure, ciclo de atualização por
+revisões e as restrições de custo estão em
+[`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md).
+
+### Armazenamento das imagens
+
+As fotos capturadas em campo são gravadas em **Azure Blob Storage**. A biblioteca
+e a API permanecem sem qualquer dependência de nuvem — elas recebem bytes e não
+conhecem a origem deles; quem integra com o Blob é o back-end da aplicação.
+
+O acesso ao container pode ser verificado isoladamente:
+
+```bash
+python desenvolvimento/scripts/verificar_blob.py
+```
+
+### Autenticação
+
+As rotas de inferência aceitam uma chave no cabeçalho `X-API-Key`, exigida
+somente quando `IA_ALFACE_CHAVE_API` está definida. Sem a variável, o serviço
+responde como sempre — o desenvolvimento local e a página `/teste` seguem sem
+credencial. `GET /health` e `GET /info` permanecem abertos.
+
+Detalhes em [`api/README.md`](api/README.md).
+
+### O que ainda não existe
+
+Planejado para as fases seguintes do TCC, **não implementado** neste repositório:
+
+| Componente | Situação |
+| --- | --- |
+| Azure Function com gatilho de blob via Event Grid | não implementada |
+| Firmware ESP32, MQTT, PostgreSQL, dashboard React | fora do escopo deste módulo |
 
 ---
 
@@ -122,11 +176,15 @@ Guia completo em [`docs/README.md`](docs/README.md).
 | Arquivo | Conteúdo |
 | --- | --- |
 | [`spec.md`](spec.md) | Especificação que originou a implementação |
+| [`CLAUDE.md`](CLAUDE.md) | Convenções e armadilhas, para assistentes de IA |
 | [`docs/README.md`](docs/README.md) | Guia de uso do módulo |
 | [`docs/DOCUMENTACAO_TECNICA_ABNT.md`](docs/DOCUMENTACAO_TECNICA_ABNT.md) | Documentação técnica em norma ABNT, para o TCC |
 | [`docs/DIVERGENCIAS.md`](docs/DIVERGENCIAS.md) | Divergências entre o projeto e a implementação |
 | [`docs/AMBIENTE.md`](docs/AMBIENTE.md) | Ambiente, versões e desempenho medido |
+| [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md) | Container, Azure Container Apps e restrições de custo |
 | [`api/README.md`](api/README.md) | Contrato da API e exemplos de consumo |
+| [`docs/swagger.html`](docs/swagger.html) | Swagger UI autocontido, gerado do código |
+| [`docs/openapi.json`](docs/openapi.json) | Contrato OpenAPI 3.1, para gerar clientes |
 | [`desenvolvimento/README.md`](desenvolvimento/README.md) | O que não vai para produção |
 
 ---

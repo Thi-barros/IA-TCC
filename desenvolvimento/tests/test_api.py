@@ -58,9 +58,16 @@ def _jpeg(largura: int = 160, altura: int = 120) -> bytes:
     return buffer.getvalue()
 
 
-@pytest.fixture
-def cliente(monkeypatch, tmp_path):
-    """Sobe a aplicação com o modelo substituído pelo duplo de teste."""
+#: Chave usada pelo cliente autenticado dos testes.
+CHAVE_DE_TESTE = "chave-de-teste-123"
+
+
+def _subir_aplicacao(monkeypatch, tmp_path, chave_api: str = "") -> TestClient:
+    """Prepara o ambiente e devolve o cliente da aplicação recarregada.
+
+    Args:
+        chave_api: Quando informada, sobe o serviço com autenticação ativa.
+    """
     pesos = tmp_path / "modelo_de_teste.pt"
     pesos.write_bytes(b"")
 
@@ -68,6 +75,13 @@ def cliente(monkeypatch, tmp_path):
     monkeypatch.setenv("IA_ALFACE_LIMIAR", "0.85")
     monkeypatch.setenv("IA_ALFACE_MAX_MB", "1")
     monkeypatch.setattr("ultralytics.YOLO", _YOLOFalso)
+
+    # Removida explicitamente para que uma variável presente no ambiente do
+    # desenvolvedor não altere o comportamento da suíte.
+    if chave_api:
+        monkeypatch.setenv("IA_ALFACE_CHAVE_API", chave_api)
+    else:
+        monkeypatch.delenv("IA_ALFACE_CHAVE_API", raising=False)
 
     _YOLOFalso.vetor = [0.02, 0.94, 0.04]
 
@@ -81,7 +95,22 @@ def cliente(monkeypatch, tmp_path):
     importlib.reload(api.configuracao)
     importlib.reload(api.main)
 
-    with TestClient(api.main.app) as cliente_teste:
+    return TestClient(api.main.app)
+
+
+@pytest.fixture
+def cliente(monkeypatch, tmp_path):
+    """Sobe a aplicação com o modelo substituído pelo duplo de teste."""
+    with _subir_aplicacao(monkeypatch, tmp_path) as cliente_teste:
+        yield cliente_teste
+
+
+@pytest.fixture
+def cliente_protegido(monkeypatch, tmp_path):
+    """Sobe a aplicação com a autenticação por chave de API ativada."""
+    with _subir_aplicacao(
+        monkeypatch, tmp_path, chave_api=CHAVE_DE_TESTE
+    ) as cliente_teste:
         yield cliente_teste
 
 
@@ -138,6 +167,31 @@ def test_documentacao_openapi_disponivel(cliente):
 
     assert "/analyze" in esquema["paths"]
     assert "/analyze/raw" in esquema["paths"]
+    assert {tag["name"] for tag in esquema["tags"]} == {"Inferência", "Operação"}
+
+
+def test_openapi_descreve_corpo_bruto(cliente):
+    """A rota do ESP32-CAM declara que recebe imagem no corpo.
+
+    O corpo é lido de ``request.body()``, que o FastAPI não inspeciona. Sem a
+    declaração explícita o contrato diria que a rota não recebe nada, e quem
+    gerasse um cliente a partir dele não conseguiria enviar a imagem.
+    """
+    esquema = cliente.get("/openapi.json").json()
+
+    corpo = esquema["paths"]["/analyze/raw"]["post"]["requestBody"]
+
+    assert corpo["required"] is True
+    assert "image/jpeg" in corpo["content"]
+
+
+def test_openapi_documenta_erros_da_inferencia(cliente):
+    """As duas rotas de inferência descrevem o mesmo contrato de falha."""
+    esquema = cliente.get("/openapi.json").json()
+
+    for rota in ("/analyze", "/analyze/raw"):
+        respostas = esquema["paths"][rota]["post"]["responses"]
+        assert {"400", "413", "503"} <= set(respostas)
 
 
 # --------------------------------------------------------------------------- #
@@ -289,3 +343,79 @@ def test_modelo_indisponivel_retorna_503(monkeypatch, tmp_path):
             "/analyze", files={"imagem": ("folha.jpg", _jpeg(), "image/jpeg")}
         )
         assert resposta.status_code == 503
+
+
+# --------------------------------------------------------------------------- #
+# Autenticação por chave de API
+# --------------------------------------------------------------------------- #
+
+
+def test_sem_chave_configurada_a_inferencia_permanece_aberta(cliente):
+    """Sem IA_ALFACE_CHAVE_API o serviço responde como sempre respondeu.
+
+    Garante que ativar o recurso não altera o desenvolvimento local nem exige
+    credencial da página /teste.
+    """
+    resposta = cliente.post(
+        "/analyze", files={"imagem": ("folha.jpg", _jpeg(), "image/jpeg")}
+    )
+
+    assert resposta.status_code == 200
+
+
+def test_chave_ausente_e_recusada(cliente_protegido):
+    """Com autenticação ativa, requisição sem cabeçalho recebe 401."""
+    resposta = cliente_protegido.post(
+        "/analyze", files={"imagem": ("folha.jpg", _jpeg(), "image/jpeg")}
+    )
+
+    assert resposta.status_code == 401
+    assert "X-API-Key" in resposta.json()["detail"]
+
+
+def test_chave_incorreta_e_recusada(cliente_protegido):
+    """Uma chave que não confere não autoriza a inferência."""
+    resposta = cliente_protegido.post(
+        "/analyze",
+        files={"imagem": ("folha.jpg", _jpeg(), "image/jpeg")},
+        headers={"X-API-Key": "chave-errada"},
+    )
+
+    assert resposta.status_code == 401
+
+
+def test_chave_correta_autoriza(cliente_protegido):
+    """Com a chave certa, a classificação ocorre normalmente."""
+    resposta = cliente_protegido.post(
+        "/analyze",
+        files={"imagem": ("folha.jpg", _jpeg(), "image/jpeg")},
+        headers={"X-API-Key": CHAVE_DE_TESTE},
+    )
+
+    assert resposta.status_code == 200
+    assert resposta.json()["classe"] == "fungico"
+
+
+def test_rota_bruta_tambem_e_protegida(cliente_protegido):
+    """O endpoint do ESP32-CAM exige a mesma chave."""
+    sem_chave = cliente_protegido.post(
+        "/analyze/raw", content=_jpeg(), headers={"Content-Type": "image/jpeg"}
+    )
+    com_chave = cliente_protegido.post(
+        "/analyze/raw",
+        content=_jpeg(),
+        headers={"Content-Type": "image/jpeg", "X-API-Key": CHAVE_DE_TESTE},
+    )
+
+    assert sem_chave.status_code == 401
+    assert com_chave.status_code == 200
+
+
+def test_operacao_permanece_aberta_com_autenticacao_ativa(cliente_protegido):
+    """/health e /info seguem acessíveis sem chave.
+
+    A sonda do orquestrador precisa alcançar /health, e nenhuma das duas rotas
+    executa inferência ou expõe dado sensível.
+    """
+    assert cliente_protegido.get("/health").status_code == 200
+    assert cliente_protegido.get("/info").status_code == 200
