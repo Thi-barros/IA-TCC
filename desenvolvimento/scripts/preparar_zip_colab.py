@@ -18,6 +18,7 @@ Uso:
     python desenvolvimento/scripts/preparar_zip_colab.py
     python desenvolvimento/scripts/preparar_zip_colab.py --sem-reducao      # cópia fiel, ~220 MB
     python desenvolvimento/scripts/preparar_zip_colab.py --max-lado 448     # mais margem
+    python desenvolvimento/scripts/preparar_zip_colab.py --origem desenvolvimento/dataset_dominio   # verificador
 """
 
 from __future__ import annotations
@@ -65,8 +66,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Diretório do dataset preparado (padrão: desenvolvimento/dataset_clean/).",
     )
     parser.add_argument(
-        "--saida", type=Path, default=CAMINHOS.raiz / "dataset_clean.zip",
-        help="Arquivo .zip de saída.",
+        "--saida", type=Path, default=None,
+        help="Arquivo .zip de saída (padrão: <nome da origem>.zip na raiz do projeto).",
     )
     parser.add_argument(
         "--max-lado", type=int, default=320,
@@ -84,9 +85,13 @@ def main(argv: list[str] | None = None) -> int:
         datefmt="%H:%M:%S",
     )
 
+    if args.saida is None:
+        args.saida = CAMINHOS.raiz / f"{args.origem.name}.zip"
+
     if not args.origem.is_dir():
         logger.error(
-            "%s não existe. Execute 'python desenvolvimento/scripts/01_preparar_dataset.py' antes.",
+            "%s não existe. Gere-o antes: 01_preparar_dataset.py (dataset_clean/) "
+            "ou 06_preparar_dataset_dominio.py (dataset_dominio/).",
             args.origem,
         )
         return 1

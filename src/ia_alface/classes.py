@@ -7,6 +7,12 @@ Os rótulos canônicos correspondem exatamente aos valores do ``ENUM`` da coluna
 ``classe`` da tabela ``deteccoes`` especificada no TCC (Seção 6.2.6.8):
 ``('saudavel', 'bacteriano', 'fungico')`` — sem acentos, em minúsculas.
 
+Os rótulos do verificador de domínio (``alface`` / ``nao_alface``) também são
+declarados aqui, como conjunto **separado** das classes de doença. Desde
+25/10/2026, a API devolve ``nao_alface`` no campo ``classe`` quando o
+verificador recusa a imagem (``docs/VERIFICADOR_DOMINIO.md``, Seção 1): para
+gravar essas respostas, o ``ENUM`` do banco precisa aceitar esse valor.
+
 Referência: spec.md, Seção 4.4.
 """
 
@@ -28,6 +34,10 @@ __all__ = [
     "rotulo_exibicao",
     "eh_patogeno",
     "validar_rotulo",
+    "CLASSE_ALFACE",
+    "CLASSE_NAO_ALFACE",
+    "EXIBICAO_NAO_ALFACE",
+    "ROTULOS_DOMINIO",
 ]
 
 
@@ -100,6 +110,22 @@ INDICE_PARA_CANONICO: Mapping[int, str] = MappingProxyType(
 )
 
 _POR_CANONICO: Mapping[str, Classe] = MappingProxyType({c.canonico: c for c in CLASSES})
+
+# Verificador de domínio (etapa 1 da cascata). Como nas classes de doença, os
+# rótulos também são os nomes das pastas do dataset, e a ordem alfabética
+# coincide com a ordem dos índices do Ultralytics: 0 = alface, 1 = nao_alface.
+
+#: Rótulo da imagem que contém folha de alface, sadia ou doente.
+CLASSE_ALFACE: str = "alface"
+
+#: Rótulo da imagem sem alface (solo, bancada, mão, outras plantas…).
+CLASSE_NAO_ALFACE: str = "nao_alface"
+
+#: Rótulo legível da resposta da API quando o verificador recusa a imagem.
+EXIBICAO_NAO_ALFACE: str = "Alface não encontrada"
+
+#: Rótulos do verificador de domínio em ordem de índice.
+ROTULOS_DOMINIO: tuple[str, ...] = (CLASSE_ALFACE, CLASSE_NAO_ALFACE)
 
 
 def canonico_de_pasta(nome_pasta: str) -> str:

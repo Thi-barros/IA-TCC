@@ -32,6 +32,11 @@ def _numero(nome: str, padrao: float) -> float:
         ) from None
 
 
+def _caminho_opcional(nome: str) -> Path | None:
+    bruto = _texto(nome, "")
+    return Path(bruto) if bruto else None
+
+
 def _lista(nome: str, padrao: list[str]) -> list[str]:
     bruto = os.environ.get(nome)
     if bruto is None or not bruto.strip():
@@ -55,6 +60,13 @@ class Configuracao:
             restringir, informe as origens explicitamente.
         chave_api: Chave exigida no cabeçalho ``X-API-Key`` pelas rotas de
             inferência. Vazia desativa a autenticação.
+        caminho_modelo_dominio: Pesos do verificador de domínio ("a imagem
+            contém alface?"). Vazio desliga a etapa 1 da cascata e o serviço
+            responde como antes. Definido, imagens sem alface recebem 200 com
+            ``classe = "nao_alface"``, sem diagnóstico nem alerta.
+        limiar_dominio: Probabilidade mínima de ``alface`` para a imagem seguir
+            ao classificador. Fixado em 0,50 para a v2, antes do teste
+            (``docs/VERIFICADOR_DOMINIO.md``, Seção 1).
         titulo: Título exibido na documentação interativa.
     """
 
@@ -79,6 +91,14 @@ class Configuracao:
         default_factory=lambda: _lista("IA_ALFACE_CORS_ORIGENS", ["*"])
     )
     chave_api: str = field(default_factory=lambda: _texto("IA_ALFACE_CHAVE_API", ""))
+    caminho_modelo_dominio: Path | None = field(
+        default_factory=lambda: _caminho_opcional("IA_ALFACE_MODELO_DOMINIO")
+    )
+    # Mesmo padrão de ia_alface.verificacao.LIMIAR_ALFACE_PADRAO. Repetido aqui
+    # para que este módulo continue sem depender da biblioteca na importação.
+    limiar_dominio: float = field(
+        default_factory=lambda: _numero("IA_ALFACE_LIMIAR_DOMINIO", 0.5)
+    )
     titulo: str = "API de Detecção de Doenças Foliares em Alface"
 
     @property
@@ -102,6 +122,11 @@ class Configuracao:
         internet.
         """
         return bool(self.chave_api)
+
+    @property
+    def verifica_dominio(self) -> bool:
+        """Indica se a etapa 1 da cascata (verificador de domínio) está configurada."""
+        return self.caminho_modelo_dominio is not None
 
 
 CONFIGURACAO = Configuracao()

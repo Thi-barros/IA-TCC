@@ -9,11 +9,14 @@ import pytest
 
 from ia_alface.classes import (
     CANONICO_PARA_INDICE,
+    CLASSE_ALFACE,
+    CLASSE_NAO_ALFACE,
     CLASSE_SAUDAVEL,
     CLASSES,
     INDICE_PARA_CANONICO,
     PASTA_ORIGINAL_PARA_CANONICO,
     ROTULOS_CANONICOS,
+    ROTULOS_DOMINIO,
     canonico_de_pasta,
     eh_patogeno,
     rotulo_exibicao,
@@ -123,3 +126,29 @@ def test_classes_expõem_nome_cientifico_coerente():
             assert classe.patogeno_cientifico is None
         else:
             assert classe.patogeno_cientifico
+
+
+# --------------------------------------------------------------------------- #
+# Rótulos do verificador de domínio
+# --------------------------------------------------------------------------- #
+
+
+def test_rotulos_de_dominio_seguem_ordem_alfabetica():
+    """O Ultralytics indexa pela ordem alfabética das pastas: 0 = alface."""
+    assert ROTULOS_DOMINIO == (CLASSE_ALFACE, CLASSE_NAO_ALFACE)
+    assert list(ROTULOS_DOMINIO) == sorted(ROTULOS_DOMINIO)
+
+
+def test_rotulos_de_dominio_sem_acentos_e_em_minusculas():
+    """Os nomes viram pastas do dataset; mantêm a convenção dos canônicos."""
+    for rotulo in ROTULOS_DOMINIO:
+        assert rotulo == rotulo.lower()
+        assert rotulo.isascii(), f"{rotulo!r} contém caracteres não-ASCII"
+
+
+def test_rotulos_de_dominio_nao_se_misturam_com_o_enum_do_banco():
+    """Nenhum rótulo do verificador pode passar por classe de doença."""
+    assert not set(ROTULOS_DOMINIO) & ENUM_BANCO_DE_DADOS
+    for rotulo in ROTULOS_DOMINIO:
+        with pytest.raises(KeyError):
+            validar_rotulo(rotulo)

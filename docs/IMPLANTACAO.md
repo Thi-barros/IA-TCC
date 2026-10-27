@@ -9,14 +9,14 @@ gratuita mensal em poucos dias.
 ## 1. Topologia
 
 ```
-ESP32-CAM ──PUT (SAS)──► Blob Storage
+Câmera Logitech C270 ──(envio ao Blob: a definir pelo grupo)──► Blob Storage
                               │ evento
                               ▼
                          Event Grid
                               │
                               ▼
                        Azure Function ──POST /analyze/raw──► API (Container App)
-                              │                                     │
+                              │                              verificador → classificador
                               │◄────────── JSON classificação ──────┘
                               ▼
                        PostgreSQL + MQTT
@@ -25,6 +25,14 @@ ESP32-CAM ──PUT (SAS)──► Blob Storage
 A API mantém o escopo declarado em `api/main.py`: recebe bytes, devolve
 classificação. Não persiste, não fala MQTT, não conhece o Azure. Quem orquestra
 é a Function.
+
+A câmera do projeto é a Logitech C270, e não o ESP32-CAM do texto original do
+TCC (`docs/DIVERGENCIAS.md`, D8). O caminho da câmera até o Blob ainda não foi
+definido pelo grupo e não deve ser presumido.
+
+Com o verificador de domínio ativo, a Function trata a resposta com
+`classe = "nao_alface"` como **resultado final**: não faz retry e não grava
+diagnóstico (Seção 5).
 
 ---
 
@@ -47,6 +55,12 @@ A resposta deve trazer `"modelo_carregado": true`. Se vier `"status": "erro"`, o
 modelo não foi encontrado — confira se `modelos/yolo11n_cls_alface.pt` existe no
 disco antes da build (o arquivo está no `.gitignore` e é distribuído por Release
 do GitHub).
+
+Com o verificador de domínio configurado, o `/health` também deve trazer
+`"verificador_carregado": true`. Se vier `false`, com `"status": "erro"`, os
+pesos do verificador (`modelos/yolo11n_cls_dominio_v2.pt`) não foram
+encontrados, e `/analyze` responde 503 em vez de diagnosticar sem ele. Sem
+`IA_ALFACE_MODELO_DOMINIO`, o campo vem `null` e a API funciona como antes.
 
 Vale testar também `http://localhost:8000/teste` com uma foto real. Depurar aqui
 é muito mais barato do que depurar um deploy silencioso.
@@ -100,6 +114,12 @@ az containerapp update --name ia-alface --resource-group <grupo> --image ghcr.io
 
 A URL não muda. Leva alguns segundos.
 
+**MFA obrigatório para alterar recursos.** Se o `update` falhar com
+`RequestDisallowedByAzure` citando MFA, a sessão do `az` foi aberta sem o
+segundo fator. Rode `az logout` e `az login` de novo e confirme o MFA no
+navegador. Consultas (`show`, `list`) continuam funcionando sem ele, o que
+engana. Visto em 26/10/2026.
+
 **Sempre incremente a tag.** Reconstruir e republicar `:v1` pode fazer o Azure
 continuar servindo a imagem antiga em cache — falha difícil de diagnosticar,
 porque tudo indica sucesso.
@@ -152,6 +172,14 @@ Regras:
    sai da faixa gratuita
 5. Configure um **alerta de orçamento** de US$5 na assinatura
 
+Para conferir se o serviço dormiu, sem acordá-lo, consulte as réplicas pelo
+`az`. No PowerShell, `--query "length(@)"` chega truncado ao `az`, que é um
+`.cmd`; use a lista de nomes, em que saída vazia quer dizer zero réplicas:
+
+```bash
+az containerapp replica list --name ia-alface --resource-group TCC-imagem --query "[].name" -o tsv
+```
+
 Note a inversão: quanto mais frequente o uso, menos a escala a zero compensa. A
 partir de uma chamada a cada poucos minutos o container deixa de dormir e passa
 a custar como um serviço sempre ligado.
@@ -170,9 +198,30 @@ carregamento, e `/analyze`, em envio manual de foto.
 | `IA_ALFACE_CORS_ORIGENS` | `*` | **defina as origens do dashboard** |
 | `IA_ALFACE_LIMIAR` | `0.85` | confira se casa com o esperado pelo back-end |
 | `IA_ALFACE_MAX_MB` | `10` | — |
+| `IA_ALFACE_MODELO_DOMINIO` | ausente = **sem verificador** | `/app/modelos/yolo11n_cls_dominio_v2.pt` |
+| `IA_ALFACE_LIMIAR_DOMINIO` | `0.5` | `0.50`, fixado no `val`. Não mude sem uma nova validação |
 
 Trocar o modelo não exige reconstruir a imagem: os dois arquivos de pesos já
-estão dentro dela.
+estão dentro dela. Os pesos do verificador entram na imagem a partir da `v2`
+(26/10/2026), por `COPY` no `Dockerfile`; a `v1` não os tem.
+
+### Resposta com o verificador ativo
+
+A imagem sem alface **não** gera erro. Ela recebe **200** com
+`classe = "nao_alface"`, `classe_exibicao = "Alface não encontrada"`,
+`confianca = 1 − probabilidade_alface`, `probabilidades = {}` e
+`patogeno_detectado` e `alerta` falsos. O bloco `verificacao` vem preenchido.
+
+- O consumidor decide pelo `alerta`, **nunca** por "classe ≠ `saudavel`". Esse
+  teste transformaria a recusa em alerta falso.
+- O `ENUM` da coluna `classe` do banco ainda não aceita `nao_alface` (D8). Até
+  o grupo do banco decidir, essas respostas não são gravadas.
+- O 422 significa só requisição malformada, e o 400, imagem corrompida. Com o
+  verificador configurado mas não carregado, a API responde 503.
+
+O verificador v2 **não atingiu** o critério de implantação fixado antes do
+teste. A implantação é decisão do autor, posterior ao resultado
+(`docs/VERIFICADOR_DOMINIO.md`, Seções 1 e 4.8).
 
 ---
 
@@ -212,6 +261,23 @@ cópia estática do contrato em `docs/` passa a mentir sobre o serviço.
 inferência por imagem* inferior a 100 ms — medido em 61,81 ms com `.pt` e
 12,73 ms com ONNX. A latência acrescentada pelo Event Grid, pelo cold start e
 pela rede está **fora dessa fronteira** de medição.
+
+Com o verificador de domínio, a mediana das duas etapas (verificador +
+classificador) foi de **51,85 ms** (`.pt`, CPU local;
+`desenvolvimento/reports/verificador_v2_test.md`), também abaixo de 100 ms.
+
+**Na nuvem** (imagem `v2`, 26/10/2026; 100 imagens do `val`, 10 de
+aquecimento descartadas; registro em `docs/VERIFICADOR_DOMINIO.md`):
+
+| Medida | Mediana | p95 |
+| --- | ---: | ---: |
+| Duas etapas, no servidor | 22,62 ms | 45,15 ms |
+| HTTP ponta a ponta, de um cliente doméstico | 104,85 ms | 505,87 ms |
+| Inicialização a frio (primeira chamada com zero réplicas) | 11,27 s (uma medida) | — |
+
+A inicialização a frio é o preço da escala a zero: a primeira análise depois
+de um período ocioso leva cerca de 11 s, e as seguintes voltam ao regime
+normal.
 
 Isso precisa constar explicitamente do relatório. Sem a ressalva, a diferença
 entre o requisito de 100 ms e um alerta que chega segundos depois parece

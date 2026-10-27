@@ -1,0 +1,234 @@
+{
+  "split": "test",
+  "versao": "v2",
+  "gerado_em": "25/10/2026 13:00",
+  "pesos": "yolo11n_cls_dominio_v2.pt",
+  "limiar": 0.5,
+  "imagens": 753,
+  "dispositivo": "cpu",
+  "config_avaliacao": {
+    "meta_alface_doentes": 0.99,
+    "meta_nao_alface": 0.95,
+    "meta_latencia_ms": 100.0,
+    "amostras_latencia": 100,
+    "aquecimento_latencia": 10
+  },
+  "agregados": {
+    "alface_folhas_doentes": {
+      "acertos": 178,
+      "total": 184,
+      "taxa": 0.9674,
+      "ic95_inf": 0.9307,
+      "ic95_sup": 0.985
+    },
+    "alface_total": {
+      "acertos": 393,
+      "total": 399,
+      "taxa": 0.985,
+      "ic95_inf": 0.9676,
+      "ic95_sup": 0.9931
+    },
+    "alface_camera_projeto": {
+      "acertos": 75,
+      "total": 75,
+      "taxa": 1.0,
+      "ic95_inf": 0.9513,
+      "ic95_sup": 1.0
+    },
+    "nao_alface_total": {
+      "acertos": 340,
+      "total": 354,
+      "taxa": 0.9605,
+      "ic95_inf": 0.9347,
+      "ic95_sup": 0.9763
+    },
+    "nao_alface_camera_projeto": {
+      "acertos": 42,
+      "total": 48,
+      "taxa": 0.875,
+      "ic95_inf": 0.753,
+      "ic95_sup": 0.9414
+    }
+  },
+  "por_grupo": [
+    {
+      "classe": "alface",
+      "grupo": "estufa/projeto",
+      "acertos": 75,
+      "total": 75,
+      "taxa": 1.0,
+      "ic95_inf": 0.9513,
+      "ic95_sup": 1.0
+    },
+    {
+      "classe": "alface",
+      "grupo": "kaggle/bacteriano",
+      "acertos": 106,
+      "total": 106,
+      "taxa": 1.0,
+      "ic95_inf": 0.965,
+      "ic95_sup": 1.0
+    },
+    {
+      "classe": "alface",
+      "grupo": "kaggle/fungico",
+      "acertos": 72,
+      "total": 78,
+      "taxa": 0.9231,
+      "ic95_inf": 0.8422,
+      "ic95_sup": 0.9643
+    },
+    {
+      "classe": "alface",
+      "grupo": "kaggle/saudavel",
+      "acertos": 140,
+      "total": 140,
+      "taxa": 1.0,
+      "ic95_inf": 0.9733,
+      "ic95_sup": 1.0
+    },
+    {
+      "classe": "nao_alface",
+      "grupo": "coco",
+      "acertos": 67,
+      "total": 67,
+      "taxa": 1.0,
+      "ic95_inf": 0.9458,
+      "ic95_sup": 1.0
+    },
+    {
+      "classe": "nao_alface",
+      "grupo": "deepweeds",
+      "acertos": 81,
+      "total": 82,
+      "taxa": 0.9878,
+      "ic95_inf": 0.9341,
+      "ic95_sup": 0.9978
+    },
+    {
+      "classe": "nao_alface",
+      "grupo": "estufa/projeto",
+      "acertos": 42,
+      "total": 48,
+      "taxa": 0.875,
+      "ic95_inf": 0.753,
+      "ic95_sup": 0.9414
+    },
+    {
+      "classe": "nao_alface",
+      "grupo": "plantdoc",
+      "acertos": 77,
+      "total": 84,
+      "taxa": 0.9167,
+      "ic95_inf": 0.8378,
+      "ic95_sup": 0.959
+    },
+    {
+      "classe": "nao_alface",
+      "grupo": "plantvillage",
+      "acertos": 73,
+      "total": 73,
+      "taxa": 1.0,
+      "ic95_inf": 0.95,
+      "ic95_sup": 1.0
+    }
+  ],
+  "cascata": {
+    "imagens": 324,
+    "por_classe": {
+      "bacteriano": {
+        "total": 106,
+        "recusadas_pelo_verificador": 0,
+        "revocacao_classificador": {
+          "acertos": 103,
+          "total": 106,
+          "taxa": 0.9717,
+          "ic95_inf": 0.9201,
+          "ic95_sup": 0.9903
+        },
+        "revocacao_cascata": {
+          "acertos": 103,
+          "total": 106,
+          "taxa": 0.9717,
+          "ic95_inf": 0.9201,
+          "ic95_sup": 0.9903
+        }
+      },
+      "fungico": {
+        "total": 78,
+        "recusadas_pelo_verificador": 6,
+        "revocacao_classificador": {
+          "acertos": 66,
+          "total": 78,
+          "taxa": 0.8462,
+          "ic95_inf": 0.7501,
+          "ic95_sup": 0.9097
+        },
+        "revocacao_cascata": {
+          "acertos": 63,
+          "total": 78,
+          "taxa": 0.8077,
+          "ic95_inf": 0.7066,
+          "ic95_sup": 0.8798
+        }
+      },
+      "saudavel": {
+        "total": 140,
+        "recusadas_pelo_verificador": 0,
+        "revocacao_classificador": {
+          "acertos": 139,
+          "total": 140,
+          "taxa": 0.9929,
+          "ic95_inf": 0.9607,
+          "ic95_sup": 0.9987
+        },
+        "revocacao_cascata": {
+          "acertos": 139,
+          "total": 140,
+          "taxa": 0.9929,
+          "ic95_inf": 0.9607,
+          "ic95_sup": 0.9987
+        }
+      }
+    },
+    "alertas_classificador": 167,
+    "alertas_cascata": 166,
+    "alertas_verdadeiros_suprimidos": 1,
+    "acuracia_classificador": {
+      "acertos": 308,
+      "total": 324,
+      "taxa": 0.9506,
+      "ic95_inf": 0.9213,
+      "ic95_sup": 0.9694
+    },
+    "acuracia_cascata": {
+      "acertos": 305,
+      "total": 324,
+      "taxa": 0.9414,
+      "ic95_inf": 0.9102,
+      "ic95_sup": 0.9621
+    }
+  },
+  "latencia": {
+    "dispositivo": "cpu",
+    "aquecimento": 10,
+    "duas_etapas": {
+      "n": 100,
+      "mediana": 51.85,
+      "media": 61.91,
+      "p95": 122.2,
+      "p99": 153.38,
+      "minimo": 41.99,
+      "maximo": 157.98
+    },
+    "so_verificador": {
+      "n": 100,
+      "mediana": 25.42,
+      "media": 30.9,
+      "p95": 61.04,
+      "p99": 73.6,
+      "minimo": 20.99,
+      "maximo": 85.21
+    }
+  }
+}

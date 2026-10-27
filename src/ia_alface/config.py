@@ -19,6 +19,8 @@ __all__ = [
     "RAIZ_PROJETO",
     "Caminhos",
     "ConfigTreino",
+    "ConfigDatasetDominio",
+    "ConfigAvaliacaoDominio",
     "CAMINHOS",
     "detectar_dispositivo",
     "descrever_ambiente",
@@ -72,6 +74,16 @@ class Caminhos:
     def dataset_limpo(self) -> Path:
         """Dataset normalizado e re-dividido, gerado por ``01_preparar_dataset.py``."""
         return self.desenvolvimento / "dataset_clean"
+
+    @property
+    def dataset_dominio_bruto(self) -> Path:
+        """Fontes do verificador de domínio (públicas e estufa). **Nunca escrever aqui.**"""
+        return self.desenvolvimento / "dataset_dominio_bruto"
+
+    @property
+    def dataset_dominio(self) -> Path:
+        """Dataset do verificador, gerado por ``06_preparar_dataset_dominio.py``."""
+        return self.desenvolvimento / "dataset_dominio"
 
     @property
     def relatorios(self) -> Path:
@@ -244,4 +256,75 @@ class ConfigTreino:
 
     def para_dicionario(self) -> dict:
         """Serializa a configuração para ``desenvolvimento/reports/treino_config.json``."""
+        return asdict(self)
+
+
+@dataclass
+class ConfigDatasetDominio:
+    """Parâmetros da montagem do dataset do verificador de domínio.
+
+    Todos podem ser sobrescritos pelos argumentos de
+    ``desenvolvimento/scripts/06_preparar_dataset_dominio.py``.
+
+    Attributes:
+        por_fonte: Máximo de imagens sorteadas de cada fonte pública negativa.
+            Mantém as negativas na ordem de grandeza das 2.216 positivas e
+            impede que uma única fonte domine a classe ``nao_alface``.
+        seed: Semente do sorteio e da atribuição de split.
+        proporcoes: Frações ``(train, val, test)`` para as fontes públicas.
+        fracao_sessoes_teste: Fração das sessões de captura da câmera do
+            projeto reservada ao teste (as mais recentes).
+        fracao_sessoes_val: Fração das sessões seguintes reservada à validação.
+        pausa_sessao_horas: Pausa, em horas, entre duas fotos consecutivas
+            acima da qual começa uma nova sessão de captura (por exemplo,
+            tarde e noite). A sessão pode atravessar a meia-noite.
+        data_corte_treino: Data ``AAAAMMDD`` (inclusive). Sessões da câmera
+            do projeto iniciadas até ela vão inteiras para o treino; só as
+            posteriores entram na divisão cronológica. O teste de 18/10/2026
+            consumiu as sessões de 10–11/10 e da noite de 17/10, que não
+            podem medir uma nova versão do verificador; a sessão de 24/10,
+            com a câmera na mão e fora do enquadramento de operação, também
+            não serve para medir. ``None`` desliga.
+        qualidade_jpeg: Qualidade das imagens que precisam ser reconvertidas.
+    """
+
+    por_fonte: int = 500
+    seed: int = 42
+    proporcoes: tuple[float, float, float] = (0.70, 0.15, 0.15)
+    fracao_sessoes_teste: float = 0.25
+    fracao_sessoes_val: float = 0.25
+    pausa_sessao_horas: float = 2.0
+    data_corte_treino: str | None = "20261024"
+    qualidade_jpeg: int = 95
+
+    def para_dicionario(self) -> dict:
+        """Serializa a configuração para o relatório de auditoria."""
+        return asdict(self)
+
+
+@dataclass
+class ConfigAvaliacaoDominio:
+    """Metas e parâmetros da avaliação do verificador de domínio.
+
+    As metas reproduzem a Tabela 7 de
+    ``docs/DOCUMENTACAO_IA_TREINAMENTO_RESULTADOS.md`` e podem ser ajustadas
+    **antes** da medição no split ``test`` — nunca depois de vê-la. O valor
+    usado em cada execução fica registrado no relatório.
+
+    Attributes:
+        meta_alface_doentes: Revocação mínima de ``alface`` em folhas doentes.
+        meta_nao_alface: Revocação mínima de ``nao_alface``.
+        meta_latencia_ms: Latência mediana máxima das duas etapas (RNF01).
+        amostras_latencia: Imagens usadas na medição de latência.
+        aquecimento_latencia: Inferências descartadas antes de medir.
+    """
+
+    meta_alface_doentes: float = 0.99
+    meta_nao_alface: float = 0.95
+    meta_latencia_ms: float = 100.0
+    amostras_latencia: int = 100
+    aquecimento_latencia: int = 10
+
+    def para_dicionario(self) -> dict:
+        """Serializa a configuração para o relatório."""
         return asdict(self)

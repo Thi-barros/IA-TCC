@@ -9,6 +9,14 @@ desenvolvimento/dataset/
 # Dataset derivado (regenerável por desenvolvimento/scripts/01_preparar_dataset.py)
 desenvolvimento/dataset_clean/
 
+# Dados brutos do verificador de domínio: conjuntos públicos baixados
+# (PlantVillage, PlantDoc, DeepWeeds) e fotos da estufa. ATENÇÃO: as fotos da
+# estufa NÃO são regeneráveis — faça backup próprio.
+desenvolvimento/dataset_dominio_bruto/
+
+# Dataset derivado do verificador de domínio (regenerável a partir do bruto)
+desenvolvimento/dataset_dominio/
+
 # Execuções de treinamento do Ultralytics
 desenvolvimento/runs/
 

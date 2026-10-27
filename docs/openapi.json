@@ -362,12 +362,59 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "InfoVerificacao": {
+        "properties": {
+          "probabilidade_alface": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Probabilidade Alface",
+            "description": "Probabilidade de a imagem conter folha de alface.",
+            "examples": [
+              0.982
+            ]
+          },
+          "limiar": {
+            "type": "number",
+            "title": "Limiar",
+            "description": "Limiar de aceitação em vigor.",
+            "examples": [
+              0.5
+            ]
+          },
+          "tempo_inferencia_ms": {
+            "type": "number",
+            "title": "Tempo Inferencia Ms",
+            "description": "Tempo da inferência do verificador, em milissegundos.",
+            "examples": [
+              11.4
+            ]
+          },
+          "modelo_versao": {
+            "type": "string",
+            "title": "Modelo Versao",
+            "description": "Arquivo de pesos do verificador.",
+            "examples": [
+              "yolo11n_cls_dominio_v2.pt"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "probabilidade_alface",
+          "limiar",
+          "tempo_inferencia_ms",
+          "modelo_versao"
+        ],
+        "title": "InfoVerificacao",
+        "description": "Resultado da etapa 1 da cascata (verificador de domínio)."
+      },
       "RespostaDeteccao": {
         "properties": {
           "classe": {
             "type": "string",
             "title": "Classe",
-            "description": "Rótulo canônico. Corresponde ao ENUM da coluna 'classe'.",
+            "description": "Rótulo canônico: 'bacteriano', 'fungico' ou 'saudavel'; ou 'nao_alface' quando o verificador de domínio está ativo e não reconhece alface na imagem — nesse caso não há diagnóstico. Corresponde à coluna 'classe', cujo ENUM precisa aceitar 'nao_alface' para gravar essas respostas.",
             "examples": [
               "fungico"
             ]
@@ -385,7 +432,7 @@
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Confianca",
-            "description": "Confiança da classe predita. Coluna 'confianca'.",
+            "description": "Confiança da classe predita. Coluna 'confianca'. Com 'nao_alface', é a probabilidade de não haver alface, dada pelo verificador (1 - 'verificacao.probabilidade_alface').",
             "examples": [
               0.956
             ]
@@ -396,7 +443,7 @@
             },
             "type": "object",
             "title": "Probabilidades",
-            "description": "Probabilidade atribuída a cada uma das três classes.",
+            "description": "Probabilidade atribuída a cada uma das três classes de doença. Vazio com 'nao_alface': o classificador não é executado.",
             "examples": [
               {
                 "bacteriano": 0.021,
@@ -408,7 +455,7 @@
           "patogeno_detectado": {
             "type": "boolean",
             "title": "Patogeno Detectado",
-            "description": "Verdadeiro quando a classe predita não é 'saudavel'.",
+            "description": "Verdadeiro quando a classe predita é 'bacteriano' ou 'fungico'. Sempre falso com 'saudavel' e 'nao_alface'.",
             "examples": [
               true
             ]
@@ -416,7 +463,7 @@
           "alerta": {
             "type": "boolean",
             "title": "Alerta",
-            "description": "Verdadeiro quando há patógeno E a confiança atinge o limiar. É o gatilho da notificação push (RF07).",
+            "description": "Verdadeiro quando há patógeno E a confiança atinge o limiar. É o gatilho da notificação push (RF07). Sempre falso com 'nao_alface'.",
             "examples": [
               true
             ]
@@ -424,7 +471,7 @@
           "tempo_inferencia_ms": {
             "type": "number",
             "title": "Tempo Inferencia Ms",
-            "description": "Tempo da inferência em milissegundos. Verifica o RNF01.",
+            "description": "Tempo da inferência do classificador, em milissegundos. Com o verificador ativo, o tempo total é este mais 'verificacao.tempo_inferencia_ms'. Zero com 'nao_alface': o classificador não é executado.",
             "examples": [
               12.73
             ]
@@ -440,7 +487,7 @@
           "modelo_versao": {
             "type": "string",
             "title": "Modelo Versao",
-            "description": "Arquivo de pesos utilizado, para rastreabilidade.",
+            "description": "Arquivo de pesos que produziu a classe, para rastreabilidade: o classificador, ou o verificador quando a classe é 'nao_alface'.",
             "examples": [
               "yolo11n_cls_alface.pt"
             ]
@@ -504,6 +551,17 @@
             ],
             "title": "Heatmap Base64",
             "description": "Mapa de calor Grad-CAM em PNG codificado em base64, presente apenas quando solicitado via 'heatmap=true'. Para exibir no navegador: data:image/png;base64,<conteudo>."
+          },
+          "verificacao": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InfoVerificacao"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Resultado do verificador de domínio, executado antes do diagnóstico — presente também quando a classe é 'nao_alface'. Nulo quando o verificador não está configurado. Informativo: não corresponde a coluna da tabela 'deteccoes'."
           }
         },
         "type": "object",
@@ -582,6 +640,36 @@
             },
             "type": "array",
             "title": "Classes"
+          },
+          "verificacao_dominio": {
+            "type": "boolean",
+            "title": "Verificacao Dominio",
+            "description": "Indica se o verificador de domínio está ativo: imagens sem alface recebem 'classe' = 'nao_alface', sem diagnóstico nem alerta.",
+            "default": false
+          },
+          "modelo_dominio_versao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelo Dominio Versao",
+            "description": "Pesos do verificador, quando ativo."
+          },
+          "limiar_dominio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limiar Dominio",
+            "description": "Limiar do verificador, quando ativo."
           }
         },
         "type": "object",
@@ -632,6 +720,29 @@
               }
             ],
             "title": "Dispositivo"
+          },
+          "verificador_carregado": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verificador Carregado",
+            "description": "Estado do verificador de domínio. Nulo quando ele não está configurado; falso quando configurado e não carregado — nesse caso a inferência responde 503."
+          },
+          "modelo_dominio_versao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelo Dominio Versao"
           },
           "detalhe": {
             "anyOf": [
@@ -706,7 +817,7 @@
   "tags": [
     {
       "name": "Inferência",
-      "description": "Classificação de uma imagem de folha. As duas rotas devolvem o mesmo corpo e diferem apenas na forma de envio: `/analyze` recebe um `multipart/form-data`, usado pelo dashboard e pelos testes manuais; `/analyze/raw` recebe os bytes crus, forma indicada para o ESP32-CAM.\n\nAmbas aceitam `?heatmap=true`, que acrescenta o mapa de calor Grad-CAM à resposta — disponível somente quando o serviço executa pesos `.pt`."
+      "description": "Classificação de uma imagem de folha. As duas rotas devolvem o mesmo corpo e diferem apenas na forma de envio: `/analyze` recebe um `multipart/form-data`, usado pelo dashboard e pelos testes manuais; `/analyze/raw` recebe os bytes crus, forma indicada para o ESP32-CAM.\n\nAmbas aceitam `?heatmap=true`, que acrescenta o mapa de calor Grad-CAM à resposta — disponível somente quando o serviço executa pesos `.pt`.\n\nCom o verificador de domínio ativo (`/info` → `verificacao_dominio`), imagens sem alface recebem **200** com `classe = \"nao_alface\"`, `alerta` e `patogeno_detectado` falsos e `probabilidades` vazio: o classificador não é executado. Trate essa resposta como definitiva: reenviar a mesma imagem produz o mesmo resultado."
     },
     {
       "name": "Operação",

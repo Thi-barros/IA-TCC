@@ -1,0 +1,302 @@
+{
+  "split": "val",
+  "gerado_em": "18/10/2026 17:15",
+  "pesos": "yolo11n_cls_dominio.pt",
+  "limiar": 0.5,
+  "imagens": 622,
+  "dispositivo": "cpu",
+  "config_avaliacao": {
+    "meta_alface_doentes": 0.99,
+    "meta_nao_alface": 0.95,
+    "meta_latencia_ms": 100.0,
+    "amostras_latencia": 100,
+    "aquecimento_latencia": 10
+  },
+  "agregados": {
+    "alface_folhas_doentes": {
+      "acertos": 189,
+      "total": 189,
+      "taxa": 1.0,
+      "ic95_inf": 0.9801,
+      "ic95_sup": 1.0
+    },
+    "alface_total": {
+      "acertos": 327,
+      "total": 328,
+      "taxa": 0.997,
+      "ic95_inf": 0.9829,
+      "ic95_sup": 0.9995
+    },
+    "alface_camera_projeto": {
+      "acertos": 2,
+      "total": 2,
+      "taxa": 1.0,
+      "ic95_inf": 0.3424,
+      "ic95_sup": 1.0
+    },
+    "nao_alface_total": {
+      "acertos": 293,
+      "total": 294,
+      "taxa": 0.9966,
+      "ic95_inf": 0.981,
+      "ic95_sup": 0.9994
+    },
+    "nao_alface_camera_projeto": {
+      "acertos": 0,
+      "total": 0,
+      "taxa": null,
+      "ic95_inf": null,
+      "ic95_sup": null
+    }
+  },
+  "por_grupo": [
+    {
+      "classe": "alface",
+      "grupo": "estufa/projeto",
+      "acertos": 2,
+      "total": 2,
+      "taxa": 1.0,
+      "ic95_inf": 0.3424,
+      "ic95_sup": 1.0
+    },
+    {
+      "classe": "alface",
+      "grupo": "kaggle/bacteriano",
+      "acertos": 114,
+      "total": 114,
+      "taxa": 1.0,
+      "ic95_inf": 0.9674,
+      "ic95_sup": 1.0
+    },
+    {
+      "classe": "alface",
+      "grupo": "kaggle/fungico",
+      "acertos": 75,
+      "total": 75,
+      "taxa": 1.0,
+      "ic95_inf": 0.9513,
+      "ic95_sup": 1.0
+    },
+    {
+      "classe": "alface",
+      "grupo": "kaggle/saudavel",
+      "acertos": 136,
+      "total": 137,
+      "taxa": 0.9927,
+      "ic95_inf": 0.9598,
+      "ic95_sup": 0.9987
+    },
+    {
+      "classe": "nao_alface",
+      "grupo": "coco",
+      "acertos": 66,
+      "total": 66,
+      "taxa": 1.0,
+      "ic95_inf": 0.945,
+      "ic95_sup": 1.0
+    },
+    {
+      "classe": "nao_alface",
+      "grupo": "deepweeds",
+      "acertos": 102,
+      "total": 102,
+      "taxa": 1.0,
+      "ic95_inf": 0.9637,
+      "ic95_sup": 1.0
+    },
+    {
+      "classe": "nao_alface",
+      "grupo": "plantdoc",
+      "acertos": 61,
+      "total": 62,
+      "taxa": 0.9839,
+      "ic95_inf": 0.9141,
+      "ic95_sup": 0.9971
+    },
+    {
+      "classe": "nao_alface",
+      "grupo": "plantvillage",
+      "acertos": 64,
+      "total": 64,
+      "taxa": 1.0,
+      "ic95_inf": 0.9434,
+      "ic95_sup": 1.0
+    }
+  ],
+  "curva": [
+    {
+      "limiar": 0.05,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 1.0,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.932,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.1,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 1.0,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9558,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.15,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 1.0,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.2,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 1.0,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.983,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.25,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 1.0,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9864,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.3,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 1.0,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9898,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.35,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 1.0,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9898,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.4,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 1.0,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9932,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.45,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 0.997,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9932,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.5,
+      "alface_folhas_doentes": 1.0,
+      "alface_total": 0.997,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.55,
+      "alface_folhas_doentes": 0.9947,
+      "alface_total": 0.9878,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.6,
+      "alface_folhas_doentes": 0.9947,
+      "alface_total": 0.9817,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.65,
+      "alface_folhas_doentes": 0.9841,
+      "alface_total": 0.9756,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.7,
+      "alface_folhas_doentes": 0.9788,
+      "alface_total": 0.9695,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.75,
+      "alface_folhas_doentes": 0.9735,
+      "alface_total": 0.9573,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.8,
+      "alface_folhas_doentes": 0.9471,
+      "alface_total": 0.9421,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.85,
+      "alface_folhas_doentes": 0.9312,
+      "alface_total": 0.9116,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.9,
+      "alface_folhas_doentes": 0.8942,
+      "alface_total": 0.878,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 0.9966,
+      "nao_alface_camera_projeto": null
+    },
+    {
+      "limiar": 0.95,
+      "alface_folhas_doentes": 0.7884,
+      "alface_total": 0.7896,
+      "alface_camera_projeto": 1.0,
+      "nao_alface_total": 1.0,
+      "nao_alface_camera_projeto": null
+    }
+  ],
+  "latencia": {
+    "dispositivo": "cpu",
+    "aquecimento": 10,
+    "duas_etapas": {
+      "n": 100,
+      "mediana": 49.63,
+      "media": 62.66,
+      "p95": 139.72,
+      "p99": 181.07,
+      "minimo": 41.97,
+      "maximo": 191.06
+    },
+    "so_verificador": {
+      "n": 100,
+      "mediana": 24.8,
+      "media": 31.11,
+      "p95": 72.49,
+      "p99": 80.95,
+      "minimo": 20.88,
+      "maximo": 105.9
+    }
+  }
+}

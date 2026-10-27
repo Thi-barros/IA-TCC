@@ -10,8 +10,9 @@
 #     curl http://localhost:8000/health
 #
 # Publicar no GitHub Container Registry:
-#     docker build -t ghcr.io/<usuario>/ia-alface:v1 .
-#     docker push ghcr.io/<usuario>/ia-alface:v1
+#     docker build -t ghcr.io/<usuario>/ia-alface:v2 .
+#     docker push ghcr.io/<usuario>/ia-alface:v2
+# Nunca republique uma tag existente; incremente (v1 = sem verificador).
 #
 # Implantação em Azure Container Apps: ver docs/IMPLANTACAO.md.
 
@@ -52,6 +53,7 @@ COPY src/ ./src/
 COPY api/ ./api/
 COPY modelos/yolo11n_cls_alface.pt   ./modelos/
 COPY modelos/yolo11n_cls_alface.onnx ./modelos/
+COPY modelos/yolo11n_cls_dominio_v2.pt ./modelos/
 
 # Padrão: pesos .pt, que mantêm o Grad-CAM de `/analyze?heatmap=true` operante
 # (o mapa de calor não funciona com modelo exportado). Para trocar pelo ONNX —
@@ -59,6 +61,14 @@ COPY modelos/yolo11n_cls_alface.onnx ./modelos/
 # implantação, sem reconstruir a imagem:
 #     IA_ALFACE_MODELO=/app/modelos/yolo11n_cls_alface.onnx
 ENV IA_ALFACE_MODELO=/app/modelos/yolo11n_cls_alface.pt
+
+# Verificador de domínio v2 ("a imagem contém alface?"), antes do classificador.
+# Imagem sem alface recebe 200 com classe "nao_alface", sem diagnóstico nem
+# alerta. Se os pesos não carregarem, /analyze responde 503 em vez de
+# diagnosticar sem ele. Limiar 0.50 fixado no val (docs/VERIFICADOR_DOMINIO.md).
+# Para desligar o verificador numa revisão, remova a variável na implantação.
+ENV IA_ALFACE_MODELO_DOMINIO=/app/modelos/yolo11n_cls_dominio_v2.pt \
+    IA_ALFACE_LIMIAR_DOMINIO=0.50
 
 # O Ultralytics grava um settings.json próprio ao carregar. Sem esta variável
 # ele tenta a home do usuário sem privilégios, não consegue, cai para /tmp e

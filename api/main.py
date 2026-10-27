@@ -13,6 +13,12 @@ aplicação, que consome esta API.
 O modelo é carregado **uma única vez**, na inicialização, e reutilizado entre
 requisições — carregá-lo a cada chamada inviabilizaria o requisito RNF01.
 
+**Verificador de domínio (opcional).** Com ``IA_ALFACE_MODELO_DOMINIO``
+definida, a inferência passa a ser em cascata: imagens que não contêm alface
+recebem 200 com ``classe = "nao_alface"``, sem diagnóstico nem alerta (decisão
+de 25/10/2026, ``docs/VERIFICADOR_DOMINIO.md``). Sem a variável, o serviço se
+comporta exatamente como antes.
+
 Execução:
     uvicorn api.main:app --reload
     uvicorn api.main:app --host 0.0.0.0 --port 8000
@@ -48,12 +54,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.security import APIKeyHeader
 
-from ia_alface.classes import CLASSES
-from ia_alface.inferencia import DetectorDoencasAlface, ResultadoDeteccao
+from ia_alface.cascata import AnalisadorCascata, ImagemForaDoDominio, ResultadoCascata
+from ia_alface.classes import CLASSE_NAO_ALFACE, CLASSES, EXIBICAO_NAO_ALFACE
+from ia_alface.inferencia import DetectorDoencasAlface
+from ia_alface.verificacao import ResultadoVerificacao, VerificadorDominio
 
 from .configuracao import CONFIGURACAO
 from .esquemas import (
     ClasseInfo,
+    InfoVerificacao,
     RespostaDeteccao,
     RespostaErro,
     RespostaInfo,
@@ -70,8 +79,11 @@ logger = logging.getLogger("api")
 #: Estado do serviço. Preenchido na inicialização.
 _estado: dict[str, Any] = {
     "detector": None,
+    "verificador": None,
+    "analisador": None,
     "explicador": None,
     "erro_carregamento": None,
+    "erro_verificador": None,
 }
 
 
@@ -108,9 +120,41 @@ async def ciclo_de_vida(_app: FastAPI):
             "esteja disponível. Treine com desenvolvimento/scripts/02_treinar.py."
         )
 
+    if CONFIGURACAO.verifica_dominio:
+        logger.info(
+            "Carregando verificador de domínio de %s", CONFIGURACAO.caminho_modelo_dominio
+        )
+        try:
+            _estado["verificador"] = VerificadorDominio(
+                caminho_modelo=CONFIGURACAO.caminho_modelo_dominio,
+                dispositivo=CONFIGURACAO.dispositivo,
+                limiar_alface=CONFIGURACAO.limiar_dominio,
+            )
+            logger.info(
+                "Verificador pronto: %s | limiar=%.2f",
+                _estado["verificador"].modelo_versao,
+                _estado["verificador"].limiar_alface,
+            )
+        except Exception as erro:  # noqa: BLE001 - o serviço deve subir mesmo assim
+            _estado["erro_verificador"] = str(erro)
+            logger.error("Falha ao carregar o verificador de domínio: %s", erro)
+            logger.error(
+                "IA_ALFACE_MODELO_DOMINIO está definida: /analyze responderá 503 "
+                "até o verificador carregar. Seguir sem ele daria diagnóstico a "
+                "imagens sem alface."
+            )
+
+    # A cascata só é montada quando está completa. Com o verificador
+    # configurado e não carregado, _obter_analisador responde 503.
+    verificador_ok = not CONFIGURACAO.verifica_dominio or _estado["verificador"] is not None
+    if _estado["detector"] is not None and verificador_ok:
+        _estado["analisador"] = AnalisadorCascata(_estado["detector"], _estado["verificador"])
+
     yield
 
     _estado["detector"] = None
+    _estado["verificador"] = None
+    _estado["analisador"] = None
     _estado["explicador"] = None
     logger.info("Serviço encerrado.")
 
@@ -130,7 +174,12 @@ TAGS_OPENAPI: list[dict[str, str]] = [
             "manuais; `/analyze/raw` recebe os bytes crus, forma indicada para "
             "o ESP32-CAM.\n\nAmbas aceitam `?heatmap=true`, que acrescenta o "
             "mapa de calor Grad-CAM à resposta — disponível somente quando o "
-            "serviço executa pesos `.pt`."
+            "serviço executa pesos `.pt`.\n\nCom o verificador de domínio "
+            "ativo (`/info` → `verificacao_dominio`), imagens sem alface "
+            "recebem **200** com `classe = \"nao_alface\"`, `alerta` e "
+            "`patogeno_detectado` falsos e `probabilidades` vazio: o "
+            "classificador não é executado. Trate essa resposta como "
+            "definitiva: reenviar a mesma imagem produz o mesmo resultado."
         ),
     },
     {
@@ -289,6 +338,24 @@ def _obter_detector() -> DetectorDoencasAlface:
     return detector
 
 
+def _obter_analisador() -> AnalisadorCascata:
+    """Devolve a cascata pronta ou interrompe com 503.
+
+    Com o verificador configurado e não carregado, a inferência é recusada em
+    vez de seguir sem ele: imagens sem alface receberiam diagnóstico.
+    """
+    _obter_detector()
+    if CONFIGURACAO.verifica_dominio and _estado["verificador"] is None:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Verificador de domínio indisponível. "
+                f"{_estado['erro_verificador'] or 'Carregamento não concluído.'}"
+            ),
+        )
+    return _estado["analisador"]
+
+
 def _validar_tamanho(dados: bytes) -> None:
     """Rejeita corpos acima do limite configurado."""
     if len(dados) == 0:
@@ -310,7 +377,9 @@ def _gerar_heatmap(dados: bytes) -> str:
     """Gera o mapa de calor Grad-CAM e o devolve em base64.
 
     O explicador é construído sob demanda, na primeira solicitação, para não
-    duplicar o modelo em memória quando o recurso não é utilizado.
+    duplicar o modelo em memória quando o recurso não é utilizado. O mapa cobre
+    só a região que a rede analisa (o recorte central); as faixas descartadas
+    ficam sem cor.
     """
     if not CONFIGURACAO.suporta_heatmap:
         raise HTTPException(
@@ -329,39 +398,69 @@ def _gerar_heatmap(dados: bytes) -> str:
             CONFIGURACAO.caminho_modelo, dispositivo=CONFIGURACAO.dispositivo
         )
 
-    import numpy as np
-    from matplotlib import colormaps
     from PIL import Image
 
     with Image.open(io.BytesIO(dados)) as aberta:
         original = aberta.convert("RGB").copy()
 
-    mapa, _classe, _confianca = _estado["explicador"].gerar(original)
-
-    base = np.asarray(original, dtype=np.float32) / 255.0
-    cores = colormaps["jet"](mapa)[..., :3].astype(np.float32)
-    mistura = np.clip(base * 0.55 + cores * 0.45, 0.0, 1.0)
+    sobreposta, _classe, _confianca = _estado["explicador"].sobreposicao(original)
 
     buffer = io.BytesIO()
-    Image.fromarray((mistura * 255).astype(np.uint8)).save(buffer, format="PNG")
+    sobreposta.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 def _montar_resposta(
-    resultado: ResultadoDeteccao, heatmap: str | None
+    resultado: ResultadoCascata, heatmap: str | None
 ) -> RespostaDeteccao:
     """Converte o resultado da biblioteca no esquema da API."""
+    deteccao = resultado.deteccao
+    verificacao = None
+    if resultado.verificacao is not None:
+        verificacao = InfoVerificacao(
+            probabilidade_alface=resultado.verificacao.probabilidade_alface,
+            limiar=resultado.verificacao.limiar,
+            tempo_inferencia_ms=resultado.verificacao.tempo_inferencia_ms,
+            modelo_versao=resultado.verificacao.modelo_versao,
+        )
     return RespostaDeteccao(
-        classe=resultado.classe,
-        classe_exibicao=resultado.classe_exibicao,
-        confianca=resultado.confianca,
-        probabilidades=resultado.probabilidades,
-        patogeno_detectado=resultado.patogeno_detectado,
-        alerta=resultado.alerta,
-        tempo_inferencia_ms=resultado.tempo_inferencia_ms,
+        classe=deteccao.classe,
+        classe_exibicao=deteccao.classe_exibicao,
+        confianca=deteccao.confianca,
+        probabilidades=deteccao.probabilidades,
+        patogeno_detectado=deteccao.patogeno_detectado,
+        alerta=deteccao.alerta,
+        tempo_inferencia_ms=deteccao.tempo_inferencia_ms,
         detectado_em=datetime.now(timezone.utc).isoformat(),
-        modelo_versao=resultado.modelo_versao,
+        modelo_versao=deteccao.modelo_versao,
         heatmap_base64=heatmap,
+        verificacao=verificacao,
+    )
+
+
+def _montar_resposta_sem_alface(verificacao: ResultadoVerificacao) -> RespostaDeteccao:
+    """Monta a resposta 200 de uma imagem que o verificador não reconheceu como alface.
+
+    O classificador não chegou a ser executado: ``probabilidades`` fica vazio,
+    ``tempo_inferencia_ms`` é zero e ``patogeno_detectado`` e ``alerta`` são
+    falsos — nenhum consumidor pode tirar dela um diagnóstico.
+    """
+    return RespostaDeteccao(
+        classe=CLASSE_NAO_ALFACE,
+        classe_exibicao=EXIBICAO_NAO_ALFACE,
+        confianca=round(1.0 - verificacao.probabilidade_alface, 3),
+        probabilidades={},
+        patogeno_detectado=False,
+        alerta=False,
+        tempo_inferencia_ms=0.0,
+        detectado_em=datetime.now(timezone.utc).isoformat(),
+        modelo_versao=verificacao.modelo_versao,
+        verificacao=InfoVerificacao(
+            probabilidade_alface=verificacao.probabilidade_alface,
+            limiar=verificacao.limiar,
+            tempo_inferencia_ms=verificacao.tempo_inferencia_ms,
+            modelo_versao=verificacao.modelo_versao,
+        ),
     )
 
 
@@ -372,34 +471,41 @@ async def _analisar(dados: bytes, com_heatmap: bool) -> RespostaDeteccao:
     Executá-la diretamente no laço de eventos travaria o servidor inteiro pelo
     período — inclusive as respostas de ``/health``. Por isso o trabalho pesado é
     delegado ao pool de threads, deixando o laço livre para aceitar conexões.
-    O acesso ao modelo permanece serializado pelo *lock* interno do detector.
+    O acesso a cada modelo permanece serializado pelo *lock* interno dele.
     """
-    detector = _obter_detector()
+    analisador = _obter_analisador()
     _validar_tamanho(dados)
 
-    return await run_in_threadpool(_analisar_sincrono, detector, dados, com_heatmap)
+    return await run_in_threadpool(_analisar_sincrono, analisador, dados, com_heatmap)
 
 
 def _analisar_sincrono(
-    detector: DetectorDoencasAlface, dados: bytes, com_heatmap: bool
+    analisador: AnalisadorCascata, dados: bytes, com_heatmap: bool
 ) -> RespostaDeteccao:
-    """Parte bloqueante da análise, executada fora do laço de eventos."""
+    """Parte bloqueante da análise, executada fora do laço de eventos.
+
+    A recusa do verificador vira resposta 200 com ``classe = "nao_alface"``;
+    imagem inválida continua sendo 400, nunca "não alface". Nenhum mapa de
+    calor é gerado para imagem sem alface.
+    """
 
     try:
-        resultado = detector.predizer(dados)
+        resultado = analisador.analisar(dados)
     except ValueError as erro:
         # Imagem corrompida, truncada ou em formato não suportado. Jamais
         # devolver um resultado nesse caso: um falso 'saudavel' suprimiria o
         # alerta sem qualquer indicação de anomalia.
         raise HTTPException(status_code=400, detail=str(erro)) from erro
+    except ImagemForaDoDominio as recusa:
+        return _montar_resposta_sem_alface(recusa.verificacao)
 
     heatmap = _gerar_heatmap(dados) if com_heatmap else None
 
-    if resultado.alerta:
+    if resultado.deteccao.alerta:
         logger.warning(
             "ALERTA: %s detectado com confiança %.1f%%",
-            resultado.classe,
-            resultado.confianca * 100,
+            resultado.deteccao.classe,
+            resultado.deteccao.confianca * 100,
         )
 
     return _montar_resposta(resultado, heatmap)
@@ -448,17 +554,40 @@ async def saude() -> RespostaSaude:
     Adequado para *health check* de orquestradores e balanceadores.
     """
     detector = _estado["detector"]
+    verificador = _estado["verificador"]
+
+    verificador_carregado = None
+    if CONFIGURACAO.verifica_dominio:
+        verificador_carregado = verificador is not None
+    modelo_dominio = verificador.modelo_versao if verificador is not None else None
+
     if detector is None:
         return RespostaSaude(
             status="erro",
             modelo_carregado=False,
+            verificador_carregado=verificador_carregado,
+            modelo_dominio_versao=modelo_dominio,
             detalhe=_estado["erro_carregamento"] or "Modelo não carregado.",
+        )
+    if verificador_carregado is False:
+        return RespostaSaude(
+            status="erro",
+            modelo_carregado=True,
+            modelo_versao=detector.modelo_versao,
+            dispositivo=detector.dispositivo,
+            verificador_carregado=False,
+            detalhe=(
+                "Verificador de domínio não carregado: "
+                f"{_estado['erro_verificador'] or 'carregamento não concluído.'}"
+            ),
         )
     return RespostaSaude(
         status="ok",
         modelo_carregado=True,
         modelo_versao=detector.modelo_versao,
         dispositivo=detector.dispositivo,
+        verificador_carregado=verificador_carregado,
+        modelo_dominio_versao=modelo_dominio,
     )
 
 
@@ -477,6 +606,7 @@ async def info() -> RespostaInfo:
     de classe no front-end.
     """
     detector = _obter_detector()
+    verificador = _estado["verificador"]
     return RespostaInfo(
         modelo_versao=detector.modelo_versao,
         dispositivo=detector.dispositivo,
@@ -484,6 +614,9 @@ async def info() -> RespostaInfo:
         limiar_confianca=detector.limiar_confianca,
         suporta_heatmap=CONFIGURACAO.suporta_heatmap,
         tamanho_maximo_mb=CONFIGURACAO.tamanho_maximo_mb,
+        verificacao_dominio=CONFIGURACAO.verifica_dominio,
+        modelo_dominio_versao=verificador.modelo_versao if verificador else None,
+        limiar_dominio=verificador.limiar_alface if verificador else None,
         classes=[
             ClasseInfo(
                 indice=classe.indice,

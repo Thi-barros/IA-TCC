@@ -35,7 +35,15 @@ from .config import CAMINHOS, detectar_dispositivo
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ResultadoDeteccao", "DetectorDoencasAlface", "IMGSZ_PADRAO"]
+__all__ = [
+    "ResultadoDeteccao",
+    "DetectorDoencasAlface",
+    "IMGSZ_PADRAO",
+    "EntradaImagem",
+    "preparar_entrada",
+    "carregar_modelo_classificacao",
+    "descobrir_imgsz",
+]
 
 #: Tamanho de entrada padrão da tarefa de classificação (spec.md, Seção 2).
 IMGSZ_PADRAO: int = 224
@@ -158,28 +166,12 @@ class DetectorDoencasAlface:
                 "Execute 'python desenvolvimento/scripts/02_treinar.py' para gerar o modelo."
             )
 
-        from ultralytics import YOLO
-
         self._caminho_modelo = caminho_modelo
-
-        # Para pesos .pt o Ultralytics deduz a tarefa do checkpoint, e a dedução
-        # serve de verificação. Formatos exportados (.onnx, .torchscript, .engine)
-        # não permitem essa dedução no construtor — os metadados só são lidos
-        # quando o backend é montado —, então a tarefa é informada explicitamente.
-        if caminho_modelo.suffix.lower() == ".pt":
-            self._modelo = YOLO(str(caminho_modelo))
-            if getattr(self._modelo, "task", None) != "classify":
-                raise ValueError(
-                    f"O modelo em {caminho_modelo} tem tarefa "
-                    f"{getattr(self._modelo, 'task', 'desconhecida')!r}; "
-                    "este detector exige um modelo de classificação ('classify')."
-                )
-        else:
-            self._modelo = YOLO(str(caminho_modelo), task="classify")
+        self._modelo = carregar_modelo_classificacao(caminho_modelo)
 
         self._dispositivo = detectar_dispositivo(dispositivo)
         self._limiar_confianca = float(limiar_confianca)
-        self._imgsz = int(imgsz) if imgsz else self._descobrir_imgsz()
+        self._imgsz = int(imgsz) if imgsz else descobrir_imgsz(self._modelo)
         self._trava = threading.Lock()
 
         # Lê os nomes de classe do modelo em tempo de execução, em vez de assumir
@@ -247,7 +239,7 @@ class DetectorDoencasAlface:
             ValueError: Se a imagem estiver vazia, corrompida, em formato não
                 suportado ou com número de canais inválido.
         """
-        entrada = self._preparar_entrada(imagem)
+        entrada = preparar_entrada(imagem)
 
         inicio = time.perf_counter()
         with self._trava:
@@ -281,7 +273,7 @@ class DetectorDoencasAlface:
         if not imagens:
             raise ValueError("A lista de imagens para inferência está vazia.")
 
-        entradas = [self._preparar_entrada(img) for img in imagens]
+        entradas = [preparar_entrada(img) for img in imagens]
 
         inicio = time.perf_counter()
         with self._trava:
@@ -299,23 +291,6 @@ class DetectorDoencasAlface:
     # ------------------------------------------------------------------ #
     # Internos
     # ------------------------------------------------------------------ #
-
-    def _descobrir_imgsz(self) -> int:
-        """Tenta recuperar o ``imgsz`` de treino a partir do checkpoint."""
-        for acesso in (
-            lambda: self._modelo.ckpt["train_args"]["imgsz"],
-            lambda: self._modelo.overrides["imgsz"],
-            lambda: self._modelo.model.args["imgsz"],
-        ):
-            try:
-                valor = acesso()
-                if isinstance(valor, (list, tuple)):
-                    valor = valor[0]
-                if valor:
-                    return int(valor)
-            except Exception:  # noqa: BLE001 - acesso oportunista
-                continue
-        return IMGSZ_PADRAO
 
     def _validar_classes(self) -> None:
         """Garante que as classes do modelo são exatamente as canônicas.
@@ -345,81 +320,6 @@ class DetectorDoencasAlface:
             f"canônico do projeto {sorted(canonicos)}. Verifique se o modelo foi "
             "treinado sobre desenvolvimento/dataset_clean/."
         )
-
-    def _preparar_entrada(self, imagem: EntradaImagem) -> Image.Image | np.ndarray:
-        """Valida e normaliza a entrada.
-
-        Uma imagem corrompida jamais deve produzir um resultado silencioso: um
-        falso ``'saudavel'`` causado por arquivo truncado é o pior modo de falha
-        possível neste sistema (spec.md, Seção 9).
-        """
-        if isinstance(imagem, Image.Image):
-            return self._validar_pil(imagem)
-
-        if isinstance(imagem, (bytes, bytearray)):
-            if len(imagem) == 0:
-                raise ValueError(
-                    "Os bytes da imagem estão vazios. Verifique o envio do "
-                    "ESP32-CAM."
-                )
-            try:
-                with Image.open(io.BytesIO(bytes(imagem))) as aberta:
-                    aberta.load()
-                    return self._validar_pil(aberta.copy())
-            except (UnidentifiedImageError, OSError, ValueError) as erro:
-                raise ValueError(
-                    "Não foi possível decodificar a imagem recebida em bytes "
-                    f"({len(imagem)} bytes). A transmissão pode estar truncada "
-                    f"ou o formato não é suportado. Detalhe: {erro}"
-                ) from erro
-
-        if isinstance(imagem, (str, Path)):
-            caminho = Path(imagem)
-            if not caminho.exists():
-                raise ValueError(f"Arquivo de imagem não encontrado: {caminho}")
-            if caminho.stat().st_size == 0:
-                raise ValueError(f"Arquivo de imagem vazio: {caminho}")
-            try:
-                with Image.open(caminho) as aberta:
-                    aberta.load()
-                    return self._validar_pil(aberta.copy())
-            except (UnidentifiedImageError, OSError, ValueError) as erro:
-                raise ValueError(
-                    f"Não foi possível ler a imagem {caminho}: {erro}"
-                ) from erro
-
-        if isinstance(imagem, np.ndarray):
-            if imagem.size == 0:
-                raise ValueError("O array de imagem está vazio.")
-            if imagem.ndim == 2:
-                imagem = np.stack([imagem] * 3, axis=-1)
-            if imagem.ndim != 3 or imagem.shape[2] not in (3, 4):
-                raise ValueError(
-                    "Array de imagem inválido: esperado formato (altura, largura, 3) "
-                    f"em BGR; recebido {imagem.shape}."
-                )
-            if imagem.shape[2] == 4:
-                imagem = imagem[:, :, :3]
-            if imagem.dtype != np.uint8:
-                imagem = np.clip(imagem, 0, 255).astype(np.uint8)
-            return np.ascontiguousarray(imagem)
-
-        raise ValueError(
-            f"Tipo de entrada não suportado: {type(imagem).__name__}. "
-            "Use caminho de arquivo, bytes, numpy.ndarray (BGR) ou PIL.Image."
-        )
-
-    @staticmethod
-    def _validar_pil(imagem: Image.Image) -> Image.Image:
-        """Converte para RGB e rejeita imagens de dimensão degenerada."""
-        largura, altura = imagem.size
-        if largura < 2 or altura < 2:
-            raise ValueError(
-                f"Imagem com dimensões degeneradas: {largura}×{altura} px."
-            )
-        if imagem.mode != "RGB":
-            imagem = imagem.convert("RGB")
-        return imagem
 
     def _montar_resultado(self, resultado: Any, tempo_ms: float) -> ResultadoDeteccao:
         """Traduz um ``Results`` do Ultralytics em :class:`ResultadoDeteccao`."""
@@ -457,3 +357,153 @@ class DetectorDoencasAlface:
             tempo_inferencia_ms=round(tempo_ms, 3),
             modelo_versao=self.modelo_versao,
         )
+
+
+# --------------------------------------------------------------------------- #
+# Funções compartilhadas com o verificador de domínio (verificacao.py)
+# --------------------------------------------------------------------------- #
+
+
+def carregar_modelo_classificacao(caminho_modelo: Path) -> Any:
+    """Carrega pesos Ultralytics e garante que são de classificação.
+
+    Args:
+        caminho_modelo: Arquivo de pesos (``.pt``, ``.onnx``, ``.torchscript``…)
+            ou nome de peso oficial resolvido pelo próprio Ultralytics.
+
+    Returns:
+        A instância ``ultralytics.YOLO`` carregada.
+
+    Raises:
+        ValueError: Se os pesos ``.pt`` forem de outra tarefa.
+    """
+    from ultralytics import YOLO
+
+    # Para pesos .pt o Ultralytics deduz a tarefa do checkpoint, e a dedução
+    # serve de verificação. Formatos exportados (.onnx, .torchscript, .engine)
+    # não permitem essa dedução no construtor — os metadados só são lidos
+    # quando o backend é montado —, então a tarefa é informada explicitamente.
+    if caminho_modelo.suffix.lower() == ".pt":
+        modelo = YOLO(str(caminho_modelo))
+        if getattr(modelo, "task", None) != "classify":
+            raise ValueError(
+                f"O modelo em {caminho_modelo} tem tarefa "
+                f"{getattr(modelo, 'task', 'desconhecida')!r}; "
+                "a inferência exige um modelo de classificação ('classify')."
+            )
+        return modelo
+    return YOLO(str(caminho_modelo), task="classify")
+
+
+def descobrir_imgsz(modelo: Any) -> int:
+    """Tenta recuperar o ``imgsz`` de treino a partir do checkpoint.
+
+    Args:
+        modelo: Instância ``ultralytics.YOLO`` já carregada.
+
+    Returns:
+        O ``imgsz`` registrado no checkpoint, ou :data:`IMGSZ_PADRAO`.
+    """
+    for acesso in (
+        lambda: modelo.ckpt["train_args"]["imgsz"],
+        lambda: modelo.overrides["imgsz"],
+        lambda: modelo.model.args["imgsz"],
+    ):
+        try:
+            valor = acesso()
+            if isinstance(valor, (list, tuple)):
+                valor = valor[0]
+            if valor:
+                return int(valor)
+        except Exception:  # noqa: BLE001 - acesso oportunista
+            continue
+    return IMGSZ_PADRAO
+
+
+def preparar_entrada(imagem: EntradaImagem) -> Image.Image | np.ndarray:
+    """Valida e normaliza a entrada.
+
+    Uma imagem corrompida jamais deve produzir um resultado silencioso: um
+    falso ``'saudavel'`` causado por arquivo truncado é o pior modo de falha
+    possível neste sistema (spec.md, Seção 9). A mesma validação vale para o
+    verificador de domínio: imagem inválida é erro, nunca ``nao_alface``.
+
+    Args:
+        imagem: Caminho de arquivo, ``bytes`` de JPEG/PNG, ``numpy.ndarray``
+            em BGR ou ``PIL.Image``.
+
+    Returns:
+        Imagem PIL em RGB ou array BGR ``uint8`` contíguo, pronta para o
+        ``predict`` do Ultralytics.
+
+    Raises:
+        ValueError: Se a imagem estiver vazia, corrompida, em formato não
+            suportado ou com número de canais inválido.
+    """
+    if isinstance(imagem, Image.Image):
+        return _validar_pil(imagem)
+
+    if isinstance(imagem, (bytes, bytearray)):
+        if len(imagem) == 0:
+            raise ValueError(
+                "Os bytes da imagem estão vazios. Verifique o envio do "
+                "ESP32-CAM."
+            )
+        try:
+            with Image.open(io.BytesIO(bytes(imagem))) as aberta:
+                aberta.load()
+                return _validar_pil(aberta.copy())
+        except (UnidentifiedImageError, OSError, ValueError) as erro:
+            raise ValueError(
+                "Não foi possível decodificar a imagem recebida em bytes "
+                f"({len(imagem)} bytes). A transmissão pode estar truncada "
+                f"ou o formato não é suportado. Detalhe: {erro}"
+            ) from erro
+
+    if isinstance(imagem, (str, Path)):
+        caminho = Path(imagem)
+        if not caminho.exists():
+            raise ValueError(f"Arquivo de imagem não encontrado: {caminho}")
+        if caminho.stat().st_size == 0:
+            raise ValueError(f"Arquivo de imagem vazio: {caminho}")
+        try:
+            with Image.open(caminho) as aberta:
+                aberta.load()
+                return _validar_pil(aberta.copy())
+        except (UnidentifiedImageError, OSError, ValueError) as erro:
+            raise ValueError(
+                f"Não foi possível ler a imagem {caminho}: {erro}"
+            ) from erro
+
+    if isinstance(imagem, np.ndarray):
+        if imagem.size == 0:
+            raise ValueError("O array de imagem está vazio.")
+        if imagem.ndim == 2:
+            imagem = np.stack([imagem] * 3, axis=-1)
+        if imagem.ndim != 3 or imagem.shape[2] not in (3, 4):
+            raise ValueError(
+                "Array de imagem inválido: esperado formato (altura, largura, 3) "
+                f"em BGR; recebido {imagem.shape}."
+            )
+        if imagem.shape[2] == 4:
+            imagem = imagem[:, :, :3]
+        if imagem.dtype != np.uint8:
+            imagem = np.clip(imagem, 0, 255).astype(np.uint8)
+        return np.ascontiguousarray(imagem)
+
+    raise ValueError(
+        f"Tipo de entrada não suportado: {type(imagem).__name__}. "
+        "Use caminho de arquivo, bytes, numpy.ndarray (BGR) ou PIL.Image."
+    )
+
+
+def _validar_pil(imagem: Image.Image) -> Image.Image:
+    """Converte para RGB e rejeita imagens de dimensão degenerada."""
+    largura, altura = imagem.size
+    if largura < 2 or altura < 2:
+        raise ValueError(
+            f"Imagem com dimensões degeneradas: {largura}×{altura} px."
+        )
+    if imagem.mode != "RGB":
+        imagem = imagem.convert("RGB")
+    return imagem

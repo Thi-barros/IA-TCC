@@ -6,6 +6,10 @@ da região afetada. O Grad-CAM (Selvaraju et al., 2017) recupera essa informaç�
 de localização a partir dos gradientes da última camada convolucional, sem exigir
 anotação manual do dataset.
 
+O mapa descreve só o recorte central de 224 × 224 que a rede analisa. Por isso
+ele é projetado apenas sobre essa região da foto original
+(:func:`regiao_analisada`); as faixas descartadas pelo recorte ficam sem cor.
+
 Referência: spec.md, Seção 8.
 """
 
@@ -23,11 +27,89 @@ from .inferencia import IMGSZ_PADRAO
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["GradCAM", "gerar_heatmap"]
+__all__ = ["GradCAM", "gerar_heatmap", "regiao_analisada", "sobrepor_mapa"]
 
 #: Média e desvio-padrão do ImageNet, usados pelo pré-processamento do Ultralytics.
 MEDIA_IMAGENET = (0.485, 0.456, 0.406)
 DESVIO_IMAGENET = (0.229, 0.224, 0.225)
+
+
+def regiao_analisada(
+    largura: int, altura: int, tamanho: int = IMGSZ_PADRAO
+) -> tuple[int, int, int, int]:
+    """Calcula a região da imagem original que a rede de fato analisa.
+
+    Reproduz a geometria de ``classify_transforms`` do Ultralytics: o lado menor
+    é levado a ``tamanho``, o maior acompanha a proporção (truncado, como no
+    ``torchvision``) e o quadrado central de ``tamanho`` × ``tamanho`` é
+    recortado. O mapa Grad-CAM descreve só esse recorte; esticá-lo sobre a imagem
+    inteira o desalinha em fotos não quadradas — numa foto 1280 × 720 da C270,
+    em até ~280 px nas laterais.
+
+    Args:
+        largura: Largura da imagem original, em pixels.
+        altura: Altura da imagem original, em pixels.
+        tamanho: Lado do recorte quadrado de entrada da rede.
+
+    Returns:
+        Caixa ``(esquerda, topo, direita, base)`` em pixels da imagem original.
+
+    Raises:
+        ValueError: Se alguma dimensão não for positiva.
+    """
+    if largura <= 0 or altura <= 0 or tamanho <= 0:
+        raise ValueError(
+            f"Dimensões inválidas: {largura} × {altura} (recorte de {tamanho})."
+        )
+    if largura <= altura:
+        nova_largura, nova_altura = tamanho, int(tamanho * altura / largura)
+    else:
+        nova_largura, nova_altura = int(tamanho * largura / altura), tamanho
+    # Mesmo arredondamento do CenterCrop do torchvision.
+    esquerda = int(round((nova_largura - tamanho) / 2.0))
+    topo = int(round((nova_altura - tamanho) / 2.0))
+    escala_x = largura / nova_largura
+    escala_y = altura / nova_altura
+    return (
+        round(esquerda * escala_x),
+        round(topo * escala_y),
+        round((esquerda + tamanho) * escala_x),
+        round((topo + tamanho) * escala_y),
+    )
+
+
+def sobrepor_mapa(
+    original: Image.Image,
+    mapa: np.ndarray,
+    regiao: tuple[int, int, int, int],
+    alfa: float = 0.45,
+    colormap: str = "jet",
+) -> Image.Image:
+    """Sobrepõe o mapa de calor à imagem, só dentro da região analisada.
+
+    Fora da região, que a rede não viu, os pixels ficam idênticos aos da imagem
+    original: o mapa não sugere que essas faixas foram avaliadas.
+
+    Args:
+        original: Imagem original.
+        mapa: Mapa 2-D em ``[0, 1]`` com as dimensões da imagem original.
+        regiao: Caixa ``(esquerda, topo, direita, base)`` de
+            :func:`regiao_analisada`.
+        alfa: Opacidade do mapa sobre a imagem.
+        colormap: Nome do mapa de cores do matplotlib.
+
+    Returns:
+        Nova imagem RGB com a sobreposição.
+    """
+    from matplotlib import colormaps
+
+    esquerda, topo, direita, base = regiao
+    resultado = np.array(original.convert("RGB"), dtype=np.uint8)
+    trecho = resultado[topo:base, esquerda:direita].astype(np.float32) / 255.0
+    cores = colormaps[colormap](mapa[topo:base, esquerda:direita])[..., :3]
+    mistura = np.clip(trecho * (1.0 - alfa) + cores * alfa, 0.0, 1.0)
+    resultado[topo:base, esquerda:direita] = (mistura * 255).astype(np.uint8)
+    return Image.fromarray(resultado)
 
 
 class GradCAM:
@@ -154,14 +236,21 @@ class GradCAM:
 
     @staticmethod
     def _redimensionar_e_recortar(imagem: Image.Image, tamanho: int) -> Image.Image:
-        """Redimensiona pelo menor lado e recorta o centro."""
-        largura, altura = imagem.size
-        escala = tamanho / min(largura, altura)
-        nova = (max(tamanho, round(largura * escala)), max(tamanho, round(altura * escala)))
-        imagem = imagem.resize(nova, Image.BILINEAR)
-        esquerda = (imagem.width - tamanho) // 2
-        topo = (imagem.height - tamanho) // 2
-        return imagem.crop((esquerda, topo, esquerda + tamanho, topo + tamanho))
+        """Recorta a região analisada e a leva a ``tamanho`` × ``tamanho``.
+
+        Usa a mesma geometria de :func:`regiao_analisada`, para que o recorte do
+        caminho alternativo coincida com a região onde o mapa é projetado.
+        """
+        caixa = regiao_analisada(imagem.width, imagem.height, tamanho)
+        return imagem.crop(caixa).resize((tamanho, tamanho), Image.BILINEAR)
+
+    @staticmethod
+    def _abrir_rgb(imagem: str | Path | Image.Image) -> Image.Image:
+        """Abre o arquivo, ou converte o objeto PIL, em imagem RGB."""
+        if isinstance(imagem, (str, Path)):
+            with Image.open(imagem) as aberta:
+                return aberta.convert("RGB").copy()
+        return imagem.convert("RGB")
 
     # ------------------------------------------------------------------ #
     # API pública
@@ -181,7 +270,9 @@ class GradCAM:
 
         Returns:
             Tupla ``(mapa, classe, confianca)``, onde ``mapa`` é um array 2-D em
-            ``[0, 1]`` com as dimensões da imagem original.
+            ``[0, 1]`` com as dimensões da imagem original, preenchido só na
+            região analisada pela rede (:func:`regiao_analisada`) e com zero
+            fora dela.
 
         Raises:
             ValueError: Se ``classe_alvo`` for desconhecida.
@@ -189,12 +280,7 @@ class GradCAM:
         """
         torch = self._torch
 
-        if isinstance(imagem, (str, Path)):
-            with Image.open(imagem) as aberta:
-                original = aberta.convert("RGB").copy()
-        else:
-            original = imagem.convert("RGB")
-
+        original = self._abrir_rgb(imagem)
         entrada = self._preprocessar(original)
 
         indice_alvo: int | None = None
@@ -248,15 +334,46 @@ class GradCAM:
                 self._nomes.get(indice_alvo, indice_alvo),
             )
 
-        mapa_redimensionado = np.asarray(
+        # O mapa descreve só o recorte central que a rede analisou: é ampliado
+        # para o tamanho dessa região e colocado na posição dela. Esticá-lo
+        # sobre a imagem inteira o desalinharia em fotos não quadradas.
+        esquerda, topo, direita, base = regiao_analisada(
+            original.width, original.height, self._imgsz
+        )
+        mapa_recorte = np.asarray(
             Image.fromarray((mapa_np * 255).astype(np.uint8)).resize(
-                original.size, Image.BILINEAR
+                (direita - esquerda, base - topo), Image.BILINEAR
             ),
             dtype=np.float32,
         ) / 255.0
+        mapa_redimensionado = np.zeros((original.height, original.width), dtype=np.float32)
+        mapa_redimensionado[topo:base, esquerda:direita] = mapa_recorte
 
         confianca = float(vetor[0, indice_alvo].detach().to("cpu").item())
         return mapa_redimensionado, self._nomes.get(indice_alvo, str(indice_alvo)), confianca
+
+    def sobreposicao(
+        self,
+        imagem: str | Path | Image.Image,
+        classe_alvo: str | int | None = None,
+        alfa: float = 0.45,
+        colormap: str = "jet",
+    ) -> tuple[Image.Image, str, float]:
+        """Gera o mapa e o devolve sobreposto à imagem, só na região analisada.
+
+        Args:
+            imagem: Caminho do arquivo ou objeto ``PIL.Image``.
+            classe_alvo: Classe a explicar. ``None`` usa a predita.
+            alfa: Opacidade do mapa de calor sobre a imagem original.
+            colormap: Nome do mapa de cores do matplotlib.
+
+        Returns:
+            Tupla ``(imagem, classe, confianca)``, com a sobreposição em RGB.
+        """
+        original = self._abrir_rgb(imagem)
+        mapa, classe, confianca = self.gerar(original, classe_alvo)
+        regiao = regiao_analisada(original.width, original.height, self._imgsz)
+        return sobrepor_mapa(original, mapa, regiao, alfa, colormap), classe, confianca
 
     def salvar_sobreposicao(
         self,
@@ -278,26 +395,13 @@ class GradCAM:
         Returns:
             Dicionário com ``caminho``, ``classe`` e ``confianca``.
         """
-        import matplotlib
-
-        matplotlib.use("Agg")
-        from matplotlib import colormaps
-
-        mapa, classe, confianca = self.gerar(imagem, classe_alvo)
-
-        if isinstance(imagem, (str, Path)):
-            with Image.open(imagem) as aberta:
-                original = aberta.convert("RGB").copy()
-        else:
-            original = imagem.convert("RGB")
-
-        base = np.asarray(original, dtype=np.float32) / 255.0
-        cores = colormaps[colormap](mapa)[..., :3].astype(np.float32)
-        mistura = np.clip(base * (1.0 - alfa) + cores * alfa, 0.0, 1.0)
+        sobreposta, classe, confianca = self.sobreposicao(
+            imagem, classe_alvo, alfa, colormap
+        )
 
         caminho_saida = Path(caminho_saida)
         caminho_saida.parent.mkdir(parents=True, exist_ok=True)
-        Image.fromarray((mistura * 255).astype(np.uint8)).save(caminho_saida)
+        sobreposta.save(caminho_saida)
 
         logger.info(
             "Mapa de calor salvo em %s (classe=%s, confiança=%.3f)",

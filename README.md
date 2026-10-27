@@ -182,6 +182,7 @@ Guia completo em [`docs/README.md`](docs/README.md).
 | [`docs/DIVERGENCIAS.md`](docs/DIVERGENCIAS.md) | Divergências entre o projeto e a implementação |
 | [`docs/AMBIENTE.md`](docs/AMBIENTE.md) | Ambiente, versões e desempenho medido |
 | [`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md) | Container, Azure Container Apps e restrições de custo |
+| [`docs/DECISOES_INFRAESTRUTURA.md`](docs/DECISOES_INFRAESTRUTURA.md) | Por que a camada de nuvem é como é: decisões, alternativas descartadas e armadilhas |
 | [`api/README.md`](api/README.md) | Contrato da API e exemplos de consumo |
 | [`docs/swagger.html`](docs/swagger.html) | Swagger UI autocontido, gerado do código |
 | [`docs/openapi.json`](docs/openapi.json) | Contrato OpenAPI 3.1, para gerar clientes |

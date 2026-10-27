@@ -24,15 +24,17 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "validar_dataset",
     "treinar",
+    "treinar_verificador",
     "gerar_comparativo_variantes",
 ]
 
 
-def validar_dataset(raiz: Path) -> None:
-    """Confere que ``desenvolvimento/dataset_clean/`` está no formato esperado pelo Ultralytics.
+def validar_dataset(raiz: Path, script_preparo: str = "01_preparar_dataset.py") -> None:
+    """Confere que um dataset de classificação está no formato esperado pelo Ultralytics.
 
     Args:
         raiz: Diretório raiz do dataset de classificação.
+        script_preparo: Script que gera o dataset, citado na mensagem de erro.
 
     Raises:
         FileNotFoundError: Se o diretório ou os splits obrigatórios não existirem.
@@ -42,7 +44,7 @@ def validar_dataset(raiz: Path) -> None:
     if not raiz.is_dir():
         raise FileNotFoundError(
             f"Dataset de treino não encontrado em {raiz}. "
-            "Execute 'python desenvolvimento/scripts/01_preparar_dataset.py' primeiro."
+            f"Execute 'python desenvolvimento/scripts/{script_preparo}' primeiro."
         )
 
     for split in ("train", "val"):
@@ -215,6 +217,87 @@ def treinar(
     logger.info("Configuração e resumo do treino salvos em %s", caminho_config)
 
     gerar_comparativo_variantes(caminhos)
+    return resumo
+
+
+def treinar_verificador(config: ConfigTreino, caminhos: Caminhos = CAMINHOS) -> dict:
+    """Treina o verificador de domínio (alface / não alface) sobre ``dataset_dominio/``.
+
+    Separado de :func:`treinar` para não misturar o verificador nos relatórios
+    do classificador: o resumo vai para ``reports/treino_verificador.json`` e o
+    comparativo de variantes não é tocado. Também não mede latência aqui — a
+    latência que importa é a das duas etapas juntas, medida na avaliação.
+
+    Args:
+        config: Hiperparâmetros. ``nome_execucao`` define o arquivo de pesos
+            (por exemplo, ``yolo11n_cls_dominio`` → ``modelos/yolo11n_cls_dominio.pt``).
+        caminhos: Caminhos do projeto.
+
+    Returns:
+        Resumo da execução.
+
+    Raises:
+        FileNotFoundError: Se ``dataset_dominio/`` não existir.
+        RuntimeError: Se o Ultralytics não produzir ``best.pt``.
+    """
+    from ultralytics import YOLO
+
+    caminhos.garantir_diretorios()
+    validar_dataset(caminhos.dataset_dominio, "06_preparar_dataset_dominio.py")
+
+    dispositivo = config.resolver_dispositivo()
+    argumentos = config.para_argumentos_ultralytics(
+        dados=caminhos.dataset_dominio, projeto=caminhos.runs / "classify"
+    )
+    logger.info(
+        "Treinando o verificador %s por até %d épocas em %s.",
+        config.nome_execucao,
+        config.epocas,
+        dispositivo,
+    )
+
+    modelo = YOLO(config.modelo_base)
+    inicio = time.perf_counter()
+    modelo.train(**argumentos)
+    duracao_s = time.perf_counter() - inicio
+
+    diretorio_execucao = Path(modelo.trainer.save_dir)
+    melhores_pesos = diretorio_execucao / "weights" / "best.pt"
+    if not melhores_pesos.exists():
+        raise RuntimeError(
+            f"O treinamento terminou, mas {melhores_pesos} não foi criado. "
+            "Verifique o log do Ultralytics acima."
+        )
+    destino_pesos = caminhos.modelos / config.nome_arquivo_pesos
+    shutil.copy2(melhores_pesos, destino_pesos)
+    logger.info("Pesos do verificador copiados para %s", destino_pesos)
+
+    n_parametros = _contar_parametros(modelo)
+    resumo = {
+        "modelo_base": config.modelo_base,
+        "nome_execucao": config.nome_execucao,
+        "pesos": str(destino_pesos),
+        "diretorio_execucao": str(diretorio_execucao),
+        "melhor_acuracia_val": _melhor_acuracia_validacao(diretorio_execucao),
+        "parametros": n_parametros,
+        "duracao_segundos": round(duracao_s, 1),
+        "duracao_formatada": f"{duracao_s / 60:.1f} min",
+        "dispositivo": dispositivo,
+        "config": config.para_dicionario(),
+        "argumentos_ultralytics": argumentos,
+        "ambiente": descrever_ambiente(),
+    }
+
+    caminho_resumo = caminhos.relatorios / "treino_verificador.json"
+    historico = [
+        r for r in _carregar_json_lista(caminho_resumo)
+        if r.get("nome_execucao") != config.nome_execucao
+    ]
+    historico.append(resumo)
+    caminho_resumo.write_text(
+        json.dumps(historico, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    logger.info("Resumo do treino do verificador salvo em %s", caminho_resumo)
     return resumo
 
 

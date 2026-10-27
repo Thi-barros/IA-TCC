@@ -16,11 +16,14 @@ from __future__ import annotations
 
 from .classes import (
     CANONICO_PARA_INDICE,
+    CLASSE_ALFACE,
+    CLASSE_NAO_ALFACE,
     CLASSE_SAUDAVEL,
     CLASSES,
     INDICE_PARA_CANONICO,
     PASTA_ORIGINAL_PARA_CANONICO,
     ROTULOS_CANONICOS,
+    ROTULOS_DOMINIO,
     Classe,
     canonico_de_pasta,
     eh_patogeno,
@@ -45,6 +48,9 @@ __all__ = [
     "rotulo_exibicao",
     "eh_patogeno",
     "validar_rotulo",
+    "CLASSE_ALFACE",
+    "CLASSE_NAO_ALFACE",
+    "ROTULOS_DOMINIO",
     # config
     "CAMINHOS",
     "Caminhos",
@@ -67,4 +73,12 @@ def __getattr__(nome: str):
         from .inferencia import ResultadoDeteccao
 
         return ResultadoDeteccao
+    if nome == "VerificadorDominio":
+        from .verificacao import VerificadorDominio
+
+        return VerificadorDominio
+    if nome == "ResultadoVerificacao":
+        from .verificacao import ResultadoVerificacao
+
+        return ResultadoVerificacao
     raise AttributeError(f"módulo {__name__!r} não possui atributo {nome!r}")
