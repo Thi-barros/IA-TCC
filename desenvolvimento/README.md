@@ -1,4 +1,4 @@
-# Desenvolvimento — o que **não** vai para produção
+# Desenvolvimento 
 
 Esta pasta agrupa tudo que pertence ao ciclo de pesquisa do módulo de IA:
 preparar o dataset, treinar, avaliar, exportar e documentar. Nada aqui é
